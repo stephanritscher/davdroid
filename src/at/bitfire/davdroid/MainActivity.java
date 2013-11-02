@@ -4,6 +4,9 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid;
 
@@ -20,6 +23,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 import at.bitfire.davdroid.syncadapter.GeneralSettingsActivity;
+import at.bitfire.davdroid.R;
 
 public class MainActivity extends Activity {
 
@@ -37,7 +41,7 @@ public class MainActivity extends Activity {
 		}
 		
 		TextView tvInfo = (TextView)findViewById(R.id.text_info);
-		tvInfo.setText(Html.fromHtml(getString(R.string.html_main_info, Constants.APP_VERSION)));
+		tvInfo.setText(Html.fromHtml(getString(R.string.mirakel_disclaimer)+getString(R.string.html_main_info, Constants.APP_VERSION)));
 		tvInfo.setMovementMethod(LinkMovementMethod.getInstance());
 	}
 

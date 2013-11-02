@@ -4,6 +4,9 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid.syncadapter;
 
@@ -98,7 +101,6 @@ public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter impleme
 	@Override
 	public void onPerformSync(Account account, Bundle extras, String authority,	ContentProviderClient provider, SyncResult syncResult) {
 		Log.i(TAG, "Performing sync for authority " + authority);
-		
 		// set class loader for iCal4j ResourceLoader
 		Thread.currentThread().setContextClassLoader(getContext().getClassLoader());
 		
@@ -131,7 +133,6 @@ public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter impleme
 				} catch (DavException ex) {
 					syncResult.stats.numParseExceptions++;
 					Log.e(TAG, "Invalid DAV response", ex);
-					
 				} catch (HttpException ex) {
 					if (ex.getCode() == HttpStatus.SC_UNAUTHORIZED) {
 						Log.e(TAG, "HTTP Unauthorized " + ex.getCode(), ex);

@@ -4,6 +4,9 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid.syncadapter;
 
@@ -48,12 +51,12 @@ public class CalendarsSyncAdapterService extends Service {
 
 	private static class SyncAdapter extends DavSyncAdapter {
 		private final static String TAG = "davdroid.CalendarsSyncAdapter";
-
+		private Context ctx;
 		
 		private SyncAdapter(Context context) {
 			super(context);
+			this.ctx=context;
 		}
-		
 		@Override
 		protected Map<LocalCollection<?>, RemoteCollection<?>> getSyncPairs(Account account, ContentProviderClient provider) {
 			AccountSettings settings = new AccountSettings(getContext(), account);
@@ -63,8 +66,7 @@ public class CalendarsSyncAdapterService extends Service {
 
 			try {
 				Map<LocalCollection<?>, RemoteCollection<?>> map = new HashMap<LocalCollection<?>, RemoteCollection<?>>();
-				
-				for (LocalCalendar calendar : LocalCalendar.findAll(account, provider)) {
+				for (LocalCalendar calendar : LocalCalendar.findAll(account, provider,ctx)) {
 					RemoteCollection<?> dav = new CalDavCalendar(httpClient, calendar.getUrl(), userName, password, preemptive);
 					map.put(calendar, dav);
 				}

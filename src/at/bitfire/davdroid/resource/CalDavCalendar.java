@@ -4,11 +4,15 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid.resource;
 
 import java.net.URISyntaxException;
 
+import at.bitfire.davdroid.resource.Event.TYPE;
 import at.bitfire.davdroid.webdav.DavMultiget;
 import ch.boye.httpclientandroidlib.impl.client.CloseableHttpClient;
 
@@ -27,7 +31,7 @@ public class CalDavCalendar extends RemoteCollection<Event> {
 	
 	@Override
 	protected Event newResourceSkeleton(String name, String ETag) {
-		return new Event(name, ETag);
+		return new Event(name, ETag,TYPE.UNKNOWN);
 	}
 	
 	

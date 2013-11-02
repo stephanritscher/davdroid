@@ -4,6 +4,9 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid.resource;
 
@@ -130,7 +133,6 @@ public abstract class RemoteCollection<T extends Resource> {
 		return resource;
 	}
 	
-	// returns ETag of the created resource, if returned by server
 	public String add(Resource res) throws IOException, HttpException, ValidationException {
 		WebDavResource member = new WebDavResource(collection, res.getName(), res.getETag());
 		member.setContentType(memberContentType());
@@ -138,9 +140,7 @@ public abstract class RemoteCollection<T extends Resource> {
 		@Cleanup ByteArrayOutputStream os = res.toEntity();
 		String eTag = member.put(os.toByteArray(), PutMode.ADD_DONT_OVERWRITE);
 		
-		// after a successful upload, the collection has implicitely changed, too
 		collection.invalidateCTag();
-		
 		return eTag;
 	}
 
@@ -151,7 +151,6 @@ public abstract class RemoteCollection<T extends Resource> {
 		collection.invalidateCTag();
 	}
 	
-	// returns ETag of the updated resource, if returned by server
 	public String update(Resource res) throws IOException, HttpException, ValidationException {
 		WebDavResource member = new WebDavResource(collection, res.getName(), res.getETag());
 		member.setContentType(memberContentType());
@@ -159,9 +158,7 @@ public abstract class RemoteCollection<T extends Resource> {
 		@Cleanup ByteArrayOutputStream os = res.toEntity();
 		String eTag = member.put(os.toByteArray(), PutMode.UPDATE_DONT_OVERWRITE);
 		
-		// after a successful upload, the collection has implicitely changed, too
 		collection.invalidateCTag();
-		
 		return eTag;
 	}
 }

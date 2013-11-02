@@ -14,6 +14,7 @@ import java.util.Set;
 import net.fortuna.ical4j.model.ValidationException;
 import android.content.SyncResult;
 import android.util.Log;
+import at.bitfire.davdroid.resource.Event;
 import at.bitfire.davdroid.ArrayUtils;
 import at.bitfire.davdroid.resource.LocalCollection;
 import at.bitfire.davdroid.resource.LocalStorageException;
@@ -42,18 +43,13 @@ public class SyncManager {
 	
 	public void synchronize(boolean manualSync, SyncResult syncResult) throws LocalStorageException, IOException, HttpException, DavException {
 		// PHASE 1: push local changes to server
-		int	deletedRemotely = pushDeleted(),
-			addedRemotely = pushNew(),
-			updatedRemotely = pushDirty();
-		
+		int	deletedRemotely = pushDeleted();
+		int	addedRemotely = pushNew();
+		int updatedRemotely = pushDirty();
 		syncResult.stats.numEntries = deletedRemotely + addedRemotely + updatedRemotely;
 		
 		// PHASE 2A: check if there's a reason to do a sync with remote (= forced sync or remote CTag changed)
-		boolean fetchCollection = syncResult.stats.numEntries > 0;
-		if (manualSync) {
-			Log.i(TAG, "Synchronization forced");
-			fetchCollection = true;
-		}
+		boolean fetchCollection = syncResult.stats.numEntries > 0||manualSync;
 		if (!fetchCollection) {
 			String	currentCTag = remote.getCTag(),
 					lastCTag = local.getCTag();
@@ -69,8 +65,8 @@ public class SyncManager {
 		
 		// PHASE 2B: detect details of remote changes
 		Log.i(TAG, "Fetching remote resource list");
-		Set<Resource>	remotelyAdded = new HashSet<Resource>(),
-						remotelyUpdated = new HashSet<Resource>();
+		Set<Resource>	remotelyAdded = new HashSet<Resource>();
+		Set<Resource>	remotelyUpdated = new HashSet<Resource>();
 		
 		Resource[] remoteResources = remote.getMemberETags();
 		for (Resource remoteResource : remoteResources) {
@@ -95,6 +91,7 @@ public class SyncManager {
 		// update collection CTag
 		Log.i(TAG, "Sync complete, fetching new CTag");
 		local.setCTag(remote.getCTag());
+		local.commit();
 	}
 	
 	
@@ -185,7 +182,6 @@ public class SyncManager {
 	private int pullNew(Resource[] resourcesToAdd) throws LocalStorageException, IOException, HttpException, DavException {
 		int count = 0;
 		Log.i(TAG, "Fetching " + resourcesToAdd.length + " new remote resource(s)");
-		
 		for (Resource[] resources : ArrayUtils.partition(resourcesToAdd, MAX_MULTIGET_RESOURCES))
 			for (Resource res : remote.multiGet(resources)) {
 				Log.d(TAG, "Adding " + res.getName());

@@ -4,6 +4,9 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid.webdav;
 
@@ -103,6 +106,7 @@ public class WebDavResource {
 		this.httpClient = httpClient;
 		location = baseURL.normalize();
 		
+		
 		context = HttpClientContext.create();
 		context.setCredentialsProvider(new BasicCredentialsProvider());
 	}
@@ -138,6 +142,7 @@ public class WebDavResource {
 		this(parent);
 		location = parent.location.resolve(URIUtils.sanitize(member));
 	}
+	
 	
 	public WebDavResource(WebDavResource parent, String member, String ETag) {
 		this(parent, member);
@@ -253,22 +258,21 @@ public class WebDavResource {
 		// processMultiStatus() requires knowledge of the actual content location,
 		// so we have to handle redirections manually and create a new request for the new location
 		for (int i = context.getRequestConfig().getMaxRedirects(); i > 0; i--) {
-			HttpPropfind propfind = new HttpPropfind(location, mode);
+		HttpPropfind propfind = new HttpPropfind(location, mode);
 			response = httpClient.execute(propfind, context);
-			
+	
 			if (response.getStatusLine().getStatusCode()/100 == 3) {
 				location = DavRedirectStrategy.getLocation(propfind, response, context);
 				Log.i(TAG, "Redirection on PROPFIND; trying again at new content URL: " + location);
-				// don't forget to throw away the unneeded response content
-				HttpEntity entity = response.getEntity();
+	
+			HttpEntity entity = response.getEntity();
 				if (entity != null) { @Cleanup InputStream content = entity.getContent(); }
 			} else
 				break;		// answer was NOT a redirection, continue
 		}
 		if (response == null)
-			throw new DavNoContentException();
-		
-		try {
+				throw new DavNoContentException();
+			try {
 			checkResponse(response);		// will also handle Content-Location
 			processMultiStatus(response);
 		} finally {
@@ -282,39 +286,34 @@ public class WebDavResource {
 		// processMultiStatus() requires knowledge of the actual content location,
 		// so we have to handle redirections manually and create a new request for the new location
 		for (int i = context.getRequestConfig().getMaxRedirects(); i > 0; i--) {
-			// build multi-get XML request 
-			List<String> hrefs = new LinkedList<String>();
-			for (String name : names)
-				hrefs.add(location.resolve(name).getRawPath());
-			DavMultiget multiget = DavMultiget.newRequest(type, hrefs.toArray(new String[0]));
-			
-			StringWriter writer = new StringWriter();
-			try {
+		List<String> hrefs = new LinkedList<String>();
+		for (String name : names)
+			hrefs.add(location.resolve(name).getRawPath());
+		DavMultiget multiget = DavMultiget.newRequest(type, hrefs.toArray(new String[0]));
+		StringWriter writer = new StringWriter();
+		try {
 				Serializer serializer = new Persister();
-				serializer.write(multiget, writer);
-			} catch (Exception ex) {
-				Log.e(TAG, "Couldn't create XML multi-get request", ex);
-				throw new DavException("Couldn't create multi-get request");
-			}
-	
-			// submit REPORT request
-			HttpReport report = new HttpReport(location, writer.toString());
+			serializer.write(multiget, writer);
+		} catch (Exception ex) {
+			Log.e(TAG, "Couldn't create XML multi-get request", ex);
+			throw new DavException("Couldn't create multi-get request");
+		}
+
+		HttpReport report = new HttpReport(location, writer.toString());
 			response = httpClient.execute(report, context);
 			
 			if (response.getStatusLine().getStatusCode()/100 == 3) {
 				location = DavRedirectStrategy.getLocation(report, response, context);
 				Log.i(TAG, "Redirection on REPORT multi-get; trying again at new content URL: " + location);
-				
-				// don't forget to throw away the unneeded response content
-				HttpEntity entity = response.getEntity();
+			
+			HttpEntity entity = response.getEntity();
 				if (entity != null) { @Cleanup InputStream content = entity.getContent(); }
 			} else
 				break;		// answer was NOT a redirection, continue
 		}
 		if (response == null)
-			throw new DavNoContentException();
-		
-		try {
+				throw new DavNoContentException();
+			try {
 			checkResponse(response);		// will also handle Content-Location
 			processMultiStatus(response);
 		} finally {
@@ -341,7 +340,6 @@ public class WebDavResource {
 		}
 	}
 	
-	// returns the ETag of the created/updated resource, if available (null otherwise)
 	public String put(byte[] data, PutMode mode) throws IOException, HttpException {
 		HttpPut put = new HttpPut(location);
 		put.setEntity(new ByteArrayEntity(data));
@@ -361,14 +359,12 @@ public class WebDavResource {
 		CloseableHttpResponse response = httpClient.execute(put, context);
 		try {
 			checkResponse(response);
-
 			Header eTag = response.getLastHeader("ETag");
 			if (eTag != null)
 				return eTag.getValue();
 		} finally {
 			response.close();
 		}
-		
 		return null;
 	}
 	
@@ -391,8 +387,6 @@ public class WebDavResource {
 	
 	protected void checkResponse(HttpResponse response) throws HttpException {
 		checkResponse(response.getStatusLine());
-		
-		// handle Content-Location header (see RFC 4918 5.2 Collection Resources)
 		Header contentLocationHdr = response.getFirstHeader("Content-Location");
 		if (contentLocationHdr != null)
 			try {
@@ -456,12 +450,10 @@ public class WebDavResource {
 			
 			// about which resource is this response?
 			WebDavResource referenced = null;
-			
-			// "this" resource is either at "location" …
 			if (location.equals(href)) {	// -> ourselves
 				referenced = this;
 			} else {
-				// … or at location + "/" (in case of a collection where the server has implicitly appended the trailing slash)
+				
 				if (!location.getRawPath().endsWith("/"))	// this is only possible if location doesn't have a trailing slash
 					try {
 						URI locationAsCollection = new URI(location.getScheme(), location.getAuthority(), location.getPath() + "/", location.getQuery(), null);

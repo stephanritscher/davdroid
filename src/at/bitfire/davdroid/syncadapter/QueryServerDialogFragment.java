@@ -4,6 +4,9 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid.syncadapter;
 
@@ -117,19 +120,19 @@ public class QueryServerDialogFragment extends DialogFragment implements LoaderC
 			try {
 				WebDavResource base = new WebDavResource(httpClient, new URI(serverInfo.getProvidedURL()), serverInfo.getUserName(),
 						serverInfo.getPassword(), serverInfo.isAuthPreemptive());
-
 				// CardDAV
 				WebDavResource principal = getCurrentUserPrincipal(base, "carddav", "addressbook");
 				if (principal != null) {
 					serverInfo.setCardDAV(true);
+				principal.propfind(Mode.HOME_SETS);
 				
-					principal.propfind(Mode.HOME_SETS);
 					String pathAddressBooks = principal.getAddressbookHomeSet();
 					if (pathAddressBooks != null)
 						Log.i(TAG, "Found address book home set: " + pathAddressBooks);
 					else
 						throw new DavIncapableException(getContext().getString(R.string.error_home_set_address_books));
-					
+				
+				
 					WebDavResource homeSetAddressBooks = new WebDavResource(principal, pathAddressBooks);
 					homeSetAddressBooks.propfind(Mode.MEMBERS_COLLECTIONS);
 					
@@ -147,10 +150,11 @@ public class QueryServerDialogFragment extends DialogFragment implements LoaderC
 								);
 								addressBooks.add(info);
 							}
+					
 					serverInfo.setAddressBooks(addressBooks);
 				}
-				
-				// CalDAV
+
+				// (5/5) get calendars
 				principal = getCurrentUserPrincipal(base, "caldav", "calendar-access");
 				if (principal != null) {
 					serverInfo.setCalDAV(true);
@@ -174,7 +178,7 @@ public class QueryServerDialogFragment extends DialogFragment implements LoaderC
 									// CALDAV:supported-calendar-component-set available
 									boolean supportsEvents = false;
 									for (String supportedComponent : resource.getSupportedComponents())
-										if (supportedComponent.equalsIgnoreCase("VEVENT"))
+										if (supportedComponent.equalsIgnoreCase("VEVENT")||supportedComponent.equalsIgnoreCase("VTODO"))
 											supportsEvents = true;
 									if (!supportsEvents)	// ignore collections without VEVENT support
 										continue;
@@ -189,12 +193,12 @@ public class QueryServerDialogFragment extends DialogFragment implements LoaderC
 								info.setTimezone(resource.getTimezone());
 								calendars.add(info);
 							}
+					
 					serverInfo.setCalendars(calendars);
 				}
-								
+				
 				if (!serverInfo.isCalDAV() && !serverInfo.isCardDAV())
 					throw new DavIncapableException(getContext().getString(R.string.neither_caldav_nor_carddav));
-				
 			} catch (URISyntaxException e) {
 				serverInfo.setErrorMessage(getContext().getString(R.string.exception_uri_syntax, e.getMessage()));
 			}  catch (IOException e) {
@@ -237,7 +241,7 @@ public class QueryServerDialogFragment extends DialogFragment implements LoaderC
 			} catch (DavException e) {
 				Log.d(TAG, "Well-known service detection failed at DAV level", e);
 			}
-
+			
 			try {
 				// fall back to user-given initial context path 
 				resource.propfind(Mode.CURRENT_USER_PRINCIPAL);

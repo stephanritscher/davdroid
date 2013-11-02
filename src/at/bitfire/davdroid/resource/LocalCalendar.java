@@ -4,19 +4,28 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
+ *     weiznich       (Mirakel)                 - VTodo implementation
  ******************************************************************************/
 package at.bitfire.davdroid.resource;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import lombok.Cleanup;
 import lombok.Getter;
+import net.fortuna.ical4j.model.DateTime;
 import net.fortuna.ical4j.model.Dur;
 import net.fortuna.ical4j.model.Parameter;
 import net.fortuna.ical4j.model.ParameterList;
@@ -28,16 +37,21 @@ import net.fortuna.ical4j.model.parameter.PartStat;
 import net.fortuna.ical4j.model.parameter.Role;
 import net.fortuna.ical4j.model.property.Action;
 import net.fortuna.ical4j.model.property.Attendee;
+import net.fortuna.ical4j.model.property.Completed;
 import net.fortuna.ical4j.model.property.Description;
 import net.fortuna.ical4j.model.property.Duration;
 import net.fortuna.ical4j.model.property.ExDate;
 import net.fortuna.ical4j.model.property.ExRule;
 import net.fortuna.ical4j.model.property.Organizer;
+import net.fortuna.ical4j.model.property.PercentComplete;
+import net.fortuna.ical4j.model.property.Priority;
 import net.fortuna.ical4j.model.property.RDate;
 import net.fortuna.ical4j.model.property.RRule;
 import net.fortuna.ical4j.model.property.Status;
 
 import org.apache.commons.lang.StringUtils;
+import org.dmfs.provider.tasks.TaskContract;
+import org.dmfs.provider.tasks.TaskContract.Tasks;
 
 import android.accounts.Account;
 import android.annotation.SuppressLint;
@@ -48,6 +62,10 @@ import android.content.ContentProviderOperation.Builder;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.net.Uri;
@@ -60,66 +78,86 @@ import android.provider.CalendarContract.Events;
 import android.provider.CalendarContract.Reminders;
 import android.provider.ContactsContract;
 import android.util.Log;
+import at.bitfire.davdroid.resource.Event.TYPE;
 import at.bitfire.davdroid.syncadapter.ServerInfo;
 
-/**
- * Represents a locally stored calendar, containing Events.
- * Communicates with the Android Contacts Provider which uses an SQLite
- * database to store the contacts.
- */
 public class LocalCalendar extends LocalCollection<Event> {
 	private static final String TAG = "davdroid.LocalCalendar";
 
+
 	@Getter protected long id;
-	@Getter protected String url;
+	@Getter protected String url, cTag;
 	
 	protected static String COLLECTION_COLUMN_CTAG = Calendars.CAL_SYNC1;
 
-	
+	private static Context ctx;
+
 	/* database fields */
-	
+
 	@Override
 	protected Uri entriesURI() {
 		return syncAdapterURI(Events.CONTENT_URI);
 	}
 
-	protected String entryColumnAccountType()	{ return Events.ACCOUNT_TYPE; }
-	protected String entryColumnAccountName()	{ return Events.ACCOUNT_NAME; }
-	
-	protected String entryColumnParentID()		{ return Events.CALENDAR_ID; }
-	protected String entryColumnID()			{ return Events._ID; }
-	protected String entryColumnRemoteName()	{ return Events._SYNC_ID; }
-	protected String entryColumnETag()			{ return Events.SYNC_DATA1; }
-
-	protected String entryColumnDirty()			{ return Events.DIRTY; }
-	protected String entryColumnDeleted()		{ return Events.DELETED; }
-	
-	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-	protected String entryColumnUID() {
-		return (android.os.Build.VERSION.SDK_INT >= 17) ?
-			Events.UID_2445 : Events.SYNC_DATA2;
+	protected String entryColumnAccountType() {
+		return Events.ACCOUNT_TYPE;
 	}
 
-	
+	protected String entryColumnAccountName() {
+		return Events.ACCOUNT_NAME;
+	}
+
+	protected String entryColumnParentID() {
+		return Events.CALENDAR_ID;
+	}
+
+	protected String entryColumnID() {
+		return Events._ID;
+	}
+
+	protected String entryColumnRemoteName() {
+		return Events._SYNC_ID;
+	}
+
+	protected String entryColumnETag() {
+		return Events.SYNC_DATA1;
+	}
+
+	protected String entryColumnDirty() {
+		return Events.DIRTY;
+	}
+
+	protected String entryColumnDeleted() {
+		return Events.DELETED;
+	}
+
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+	protected String entryColumnUID() {
+		return (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) ? Events.UID_2445
+				: Events.SYNC_DATA2;
+	}
+
 	/* class methods, constructor */
 
 	@SuppressLint("InlinedApi")
-	public static void create(Account account, ContentResolver resolver, ServerInfo.ResourceInfo info) throws LocalStorageException {
-		ContentProviderClient client = resolver.acquireContentProviderClient(CalendarContract.AUTHORITY);
+	public static void create(Account account, ContentResolver resolver,
+			ServerInfo.ResourceInfo info) throws RemoteException,LocalStorageException {
+		ContentProviderClient client = resolver
+				.acquireContentProviderClient(CalendarContract.AUTHORITY);
 		if (client == null)
 			throw new LocalStorageException("No Calendar Provider found (Calendar app disabled?)");
-		
-		int color = 0xFFC3EA6E;		// fallback: "DAVdroid green"
+		int color = 0xFFC3EA6E; // fallback: "DAVdroid green"
 		if (info.getColor() != null) {
 			Pattern p = Pattern.compile("#(\\p{XDigit}{6})(\\p{XDigit}{2})?");
 			Matcher m = p.matcher(info.getColor());
 			if (m.find()) {
 				int color_rgb = Integer.parseInt(m.group(1), 16);
-				int color_alpha = m.group(2) != null ? (Integer.parseInt(m.group(2), 16) & 0xFF) : 0xFF;
+				int color_alpha = m.group(2) != null ? (Integer.parseInt(
+						m.group(2), 16) & 0xFF) : 0xFF;
 				color = (color_alpha << 24) | color_rgb;
 			}
 		}
-		
+
 		ContentValues values = new ContentValues();
 		values.put(Calendars.ACCOUNT_NAME, account.name);
 		values.put(Calendars.ACCOUNT_TYPE, account.type);
@@ -139,100 +177,396 @@ public class LocalCalendar extends LocalCollection<Event> {
 			values.put(Calendars.CAN_MODIFY_TIME_ZONE, 1);
 		}
 		
-		if (android.os.Build.VERSION.SDK_INT >= 15) {
+		if (Build.VERSION.SDK_INT > Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			values.put(Calendars.ALLOWED_AVAILABILITY, Events.AVAILABILITY_BUSY + "," + Events.AVAILABILITY_FREE + "," + Events.AVAILABILITY_TENTATIVE);
 			values.put(Calendars.ALLOWED_ATTENDEE_TYPES, Attendees.TYPE_NONE + "," + Attendees.TYPE_OPTIONAL + "," + Attendees.TYPE_REQUIRED + "," + Attendees.TYPE_RESOURCE);
 		}
 		
 		if (info.getTimezone() != null)
 			values.put(Calendars.CALENDAR_TIME_ZONE, info.getTimezone());
-		
-		Log.i(TAG, "Inserting calendar: " + values.toString() + " -> " + calendarsURI(account).toString());
-		try {
+
+		Log.i(TAG, "Inserting calendar: " + values.toString() + " -> "
+				+ calendarsURI(account).toString());
+		try{
 			client.insert(calendarsURI(account), values);
 		} catch(RemoteException e) {
 			throw new LocalStorageException(e);
 		}
 	}
-	
-	public static LocalCalendar[] findAll(Account account, ContentProviderClient providerClient) throws RemoteException {
+
+	public static LocalCalendar[] findAll(Account account, ContentProviderClient providerClient,Context context) throws RemoteException {
 		@Cleanup Cursor cursor = providerClient.query(calendarsURI(account),
-				new String[] { Calendars._ID, Calendars.NAME },
+				new String[] { Calendars._ID, Calendars.NAME, COLLECTION_COLUMN_CTAG },
 				Calendars.DELETED + "=0 AND " + Calendars.SYNC_EVENTS + "=1", null, null);
-		
 		LinkedList<LocalCalendar> calendars = new LinkedList<LocalCalendar>();
 		while (cursor != null && cursor.moveToNext())
-			calendars.add(new LocalCalendar(account, providerClient, cursor.getInt(0), cursor.getString(1)));
+			calendars.add(new LocalCalendar(account, providerClient, cursor
+					.getInt(0), cursor.getString(1), cursor.getString(2),context));
 		return calendars.toArray(new LocalCalendar[0]);
 	}
 
-	public LocalCalendar(Account account, ContentProviderClient providerClient, long id, String url) throws RemoteException {
+	public LocalCalendar(Account account, ContentProviderClient providerClient,
+			long id, String url, String cTag,Context context) throws RemoteException {
 		super(account, providerClient);
 		this.id = id;
 		this.url = url;
+		this.cTag = cTag;
+		ctx=context;
 	}
 
+	@Override
+	public void add(Resource r){
+		if(r instanceof Event){
+			Event resource=(Event)r;
+			if (resource.getType() == TYPE.VEVENT) {
+				super.add(resource);
+			} else if (resource.getType() == TYPE.VTODO) {
+				int idx = pendingOperations.size();
+				for (Uri uri : tasksURI(account)) {
+					pendingOperations.add(buildEntry(
+							ContentProviderOperation.newInsert(uri), resource)
+							.withYieldAllowed(true).build());
 	
+					addDataRows(resource, -1, idx);
+				}
+			}
+		}else{
+			super.add(r);
+		}
+	}
+
 	/* collection operations */
-	
+
 	@Override
-	public String getCTag() throws LocalStorageException {
+	public void setCTag(String cTag) {
+		pendingOperations.add(ContentProviderOperation
+				.newUpdate(ContentUris.withAppendedId(calendarsURI(), id))
+				.withValue(COLLECTION_COLUMN_CTAG, cTag).build());
+	}
+
+	@Override
+	public void delete(Resource resource) {
+		if (resource instanceof Event) {
+			Event e = (Event) resource;
+			if (e.getType() == TYPE.VEVENT) {
+				super.delete(e);
+			} else if (e.getType() == TYPE.VTODO) {
+				for (Uri uri : tasksURI(account)) {
+					pendingOperations.add(ContentProviderOperation
+							.newDelete(
+									ContentUris.withAppendedId(uri,
+											resource.getLocalID()))
+							.withYieldAllowed(true).build());
+				}
+			} else {
+				Log.wtf(TAG, "wrong type");
+			}
+		}else{
+			super.delete(resource);
+		}
+
+	}
+
+	public Event findById(long localID, boolean populate, TYPE t) throws LocalStorageException {
+		@Cleanup Cursor cursor=null;
+		if(t==TYPE.VEVENT){
+			try {
+				cursor = providerClient.query(ContentUris.withAppendedId(entriesURI(), localID),
+						new String[] { entryColumnRemoteName(), entryColumnETag() }, null, null, null);
+				return resolveCursor(localID, populate, t, cursor);
+			} catch (Exception e) {
+				//throw new LocalStorageException(e);
+				return null;
+			} 
+		}
+		for(Uri a:tasksURI(account)){
+			try {
+				cursor = ctx.getContentResolver().query(a,
+						new String[] { Tasks._SYNC_ID, Tasks.SYNC1 }, Tasks._ID+"=?", new String[]{localID+""}, null);
+				Event e=resolveCursor(localID, populate, t, cursor);
+				if(e!=null)
+					return e;
+			} catch (Exception e) {
+				// Eat its
+			} 
+		}
+		throw new LocalStorageException();
+		
+	}
+
+	private Event resolveCursor(long localID, boolean populate, TYPE t, Cursor cursor) throws RemoteException, RecordNotFoundException {
+		if (cursor != null && cursor.moveToFirst()) {
+			Event resource = new Event(localID, cursor.getString(0), cursor.getString(1),t);
+			if (populate){
+				populate(resource);
+			}			
+			return resource;
+		}
+		throw new RecordNotFoundException();
+	}
+
+	@Override
+	public void updateByRemoteName(Resource r) throws LocalStorageException {
+		if(r instanceof Event){
+			Event e=(Event)r;
+			if (e.getType() == TYPE.VEVENT) {
+				super.updateByRemoteName(e);
+			} else {
+				Event localResource = findByRemoteName(e.getName(),false);
+				for (Uri uri : tasksURI(account)) {
+					pendingOperations
+							.add(buildEntry(
+									ContentProviderOperation.newUpdate(ContentUris
+											.withAppendedId(uri,
+													localResource.getLocalID())),
+									e)
+									.withValue(Tasks.SYNC1,
+											e.getETag())
+									.withYieldAllowed(true).build());
+				}
+	
+				// TODO add support for this
+				// removeDataRows(localResource);
+				// addDataRows(remoteResource, localResource.getLocalID(), -1);
+			}
+		}else{
+			super.updateByRemoteName(r);
+		}
+	}
+
+	@Override
+	public Event findByRemoteName(String remoteName, boolean populate) throws LocalStorageException {
+			Event resource;
+			try {
+				resource = super.findByRemoteName(remoteName, populate);
+			} catch (Exception e) {
+				//eat it
+				resource=null;
+			}
+			if (resource!=null) {
+				 return resource;
+			}
+			for (Uri uri : tasksURI(account)) {
+				
+				@Cleanup Cursor cursor = ctx.getContentResolver()
+						.query(uri,
+								new String[] { Tasks._ID, Tasks._SYNC_ID,
+										Tasks.SYNC1 }, /*
+														 * Tasks . LIST_ID +
+														 * "=? AND " +
+														 */
+								Tasks._SYNC_ID + "='?'",
+								new String[] { /*
+												 * String.valueOf(id) ,
+												 */remoteName }, null);
+				if (cursor != null && cursor.moveToNext()) {
+					resource= new Event(cursor.getLong(0), cursor.getString(1),
+							cursor.getString(2), TYPE.VTODO);
+					break;
+				}
+			}
+			if(resource==null)
+				throw new RecordNotFoundException();
+			if (populate)
+				populate(resource);
+			return resource;
+	}
+
+
+	@Override
+	public long[] findDeleted() throws LocalStorageException {
+		List<Long> deleted=longArrayToList(super.findDeleted());
+		String where = Tasks._DELETED + "=1";
+//		if (entryColumnParentID() != null)
+//			where += " AND " + entryColumnParentID() + "=" + String.valueOf(getId());
+		@Cleanup Cursor cursor=null;	
+		for (Uri uri : tasksURI(account)) {
+			cursor = ctx.getContentResolver().query(uri,
+					new String[] { Tasks._ID},
+					where, null, null);
+			while (cursor != null && cursor.moveToNext())
+				deleted.add(cursor.getLong(0));
+			if (cursor == null)
+				throw new LocalStorageException("Couldn't query dirty records");
+		}
+		return longArrayFromList(deleted);
+		
+	}
+
+	private static long[] longArrayFromList(List<Long> deleted) {
+		long[] ret=new long[deleted.size()];
+		for(int i=0;i<ret.length;i++)
+			ret[i]=deleted.get(i);
+		return ret;
+	}
+
+	private static List<Long> longArrayToList(long[] t) {
+		List<Long> list = new ArrayList<Long>();
+		for(long l:t)
+			list.add(l);
+		return list;
+	}
+
+	@Override
+	public long[] findNew() throws LocalStorageException {
+		List<Long> fresh = longArrayToList(super.findNew());
+		String where = Tasks._DIRTY + "=1 AND " + Tasks._SYNC_ID + " IS NULL";
 		try {
-			@Cleanup Cursor c = providerClient.query(ContentUris.withAppendedId(calendarsURI(), id),
-					new String[] { COLLECTION_COLUMN_CTAG }, null, null, null);
-			if (c.moveToFirst()) {
-				return c.getString(0);
-			} else
-				throw new LocalStorageException("Couldn't query calendar CTag");
-		} catch(RemoteException e) {
-			throw new LocalStorageException(e);
+			for (Uri uri : tasksURI(account)) {
+				@Cleanup Cursor cursor =ctx.getContentResolver().query(uri,
+								new String[] { Tasks._ID }, where, null, null);
+				if (cursor == null)
+					throw new LocalStorageException("Couldn't query new records");
+				
+				//long[] fresh = new long[cursor.getCount()];
+				while (cursor != null && cursor.moveToNext()) {
+					long id = cursor.getLong(0);
+					// new record: generate UID + remote file name so that we can upload
+					Event resource = findById(id, false,TYPE.VTODO);
+					if(resource==null){
+						continue;
+					}
+					resource.generateUID();
+                    resource.initialize();
+					// write generated UID + remote file name into database
+					ContentValues values = new ContentValues(2);
+					values.put(Tasks._UID, resource.getUid());
+					values.put(Tasks._SYNC_ID, resource.getName());
+					try {
+						ctx.getContentResolver().update(ContentUris.withAppendedId(uri, id), values, null, null);
+					} catch (Exception e) {
+						throw new RemoteException();
+					}					
+					fresh.add(id);
+				}
+			}
+			return longArrayFromList(fresh);
+		} catch(RemoteException ex) {
+			throw new LocalStorageException(ex);
+		}
+	}
+
+	@Override
+	public long[] findUpdated() throws LocalStorageException {
+		List<Long> dirty = longArrayToList(super.findUpdated());
+		String where = Tasks._DIRTY + "=1 AND " + Tasks._SYNC_ID + " IS NOT NULL";
+//		if (entryColumnParentID() != null)
+//			where += " AND " + entryColumnParentID() + "=" + String.valueOf(getId());
+		try {
+			for (Uri uri : tasksURI(account)) {
+				@Cleanup Cursor cursor = ctx.getContentResolver().query(uri,
+						new String[] { Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 },
+						where, null, null);
+				if (cursor == null)
+					throw new LocalStorageException("Couldn't query dirty records");
+				while (cursor != null && cursor.moveToNext())
+					dirty.add(cursor.getLong(0));
+			}
+			return longArrayFromList(dirty);
+		} catch(Exception ex) {
+			throw new LocalStorageException(ex);
+		}
+	}
+
+	@Override
+	public void commit() {
+		if (!pendingOperations.isEmpty()) {
+			Log.i(TAG, "Committing " + pendingOperations.size() + " operations");
+			ContentResolver resolver = ctx.getContentResolver();
+			// TODO remove this(there must be a better way to do this...)
+			ArrayList<ContentProviderOperation> t = new ArrayList<ContentProviderOperation>();
+			for (ContentProviderOperation op : pendingOperations) {
+				t.add(op);
+				try {
+					resolver.applyBatch(CalendarContract.AUTHORITY, t);
+				} catch (Exception e) {
+					try {
+						resolver.applyBatch(TaskContract.AUTHORITY, t);
+					} catch (Exception e1) {
+						throw new RuntimeException();
+					}
+				}
+				t.clear();
+			}
+			pendingOperations.clear();
+		}
+	};
+
+	@Override
+	public void populate(Resource resource) {
+		Event e = (Event) resource;
+		if (e == null /*|| e.isPopulated()*/)
+			return;
+		boolean success = false;
+		if (e.getType() != TYPE.VTODO) {
+			success = populateEvent(e);
+			e.setType(TYPE.VEVENT);
+		}
+		if (!success) {
+			try {
+				success = populateToDo(e);
+			} catch (RemoteException e1) {
+				e1.printStackTrace();
+				return;
+			}
+			if (success) {
+				e.setType(TYPE.VTODO);
+			} else {
+				Log.w(TAG, "Not VEVENT or VTODO");
+				throw new RuntimeException();
+			}
 		}
 	}
 	
-	@Override
-	public void setCTag(String cTag) throws LocalStorageException {
-		ContentValues values = new ContentValues(1);
-		values.put(COLLECTION_COLUMN_CTAG, cTag);
-		try {
-			providerClient.update(ContentUris.withAppendedId(calendarsURI(), id), values, null, null);
-		} catch(RemoteException e) {
-			throw new LocalStorageException(e);
+
+
+	private boolean populateToDo(Event e) throws RemoteException {
+		for (Uri uri : tasksURI(account)) {
+			Cursor cursor = ctx.getContentResolver().query(uri,
+					new String[] {
+					/* 0 */Tasks.TITLE, Tasks.LOCATION, Tasks.DESCRIPTION,
+							Tasks.DUE, Tasks.STATUS, Tasks.PRIORITY, Tasks._ID,
+							Tasks.ACCOUNT_NAME, Tasks._SYNC_ID, Tasks.SYNC1, Tasks.PERCENT_COMPLETE },
+					Tasks._ID+"=?", new String[]{e.getLocalID()+""}, null);
+			if (cursor != null && cursor.moveToFirst()) {
+				e.setUid(cursor.getString(8));
+
+				e.setSummary(cursor.getString(0));
+				e.setLocation(cursor.getString(1));
+				e.setDescription(cursor.getString(2));
+				if (!cursor.isNull(3)){
+					//Mirakel saves times in utc and transforms this dates to the current timezone
+					e.setDue(cursor.getLong(3), TimeZone.getDefault().getID());
+				}
+				// status
+				switch (cursor.getInt(4)) {
+				case Tasks.STATUS_COMPLETED:
+					e.setStatus(Status.VTODO_COMPLETED);
+					e.setDateCompleted(new Completed(new DateTime(new Date())));
+					break;
+				case Tasks.STATUS_CANCELLED:
+					e.setStatus(Status.VTODO_CANCELLED);
+					break;
+				case Tasks.STATUS_IN_PROCESS:
+					e.setStatus(Status.VTODO_IN_PROCESS);
+					break;
+				default:
+				case Tasks.STATUS_NEEDS_ACTION:
+					e.setStatus(Status.VTODO_NEEDS_ACTION);
+					break;
+
+				}
+				e.setPriority(new Priority(cursor.getInt(5)));
+				e.setCompleted(new PercentComplete(cursor.getInt(10)));
+				cursor.close();
+				return true;
+			}
+			cursor.close();
 		}
+		return false;
 	}
 
-
-	/* create/update/delete */
-	
-	public Event newResource(long localID, String resourceName, String eTag) {
-		return new Event(localID, resourceName, eTag);
-	}
-	
-	public void deleteAllExceptRemoteNames(Resource[] remoteResources) {
-		String where;
-		
-		if (remoteResources.length != 0) {
-			List<String> sqlFileNames = new LinkedList<String>();
-			for (Resource res : remoteResources)
-				sqlFileNames.add(DatabaseUtils.sqlEscapeString(res.getName()));
-			where = entryColumnRemoteName() + " NOT IN (" + StringUtils.join(sqlFileNames, ",") + ")";
-		} else
-			where = entryColumnRemoteName() + " IS NOT NULL";
-		
-		Builder builder = ContentProviderOperation.newDelete(entriesURI())
-				.withSelection(entryColumnParentID() + "=? AND (" + where + ")", new String[] { String.valueOf(id) });
-		pendingOperations.add(builder
-				.withYieldAllowed(true)
-				.build());
-	}
-	
-	
-	/* methods for populating the data object from the content provider */
-	
-
-	@Override
-	public void populate(Resource resource) throws LocalStorageException {
-		Event e = (Event)resource;
-		
+	private boolean populateEvent(Event e) {		
 		try {
 			@Cleanup Cursor cursor = providerClient.query(ContentUris.withAppendedId(entriesURI(), e.getLocalID()),
 				new String[] {
@@ -309,7 +643,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 				} catch (IllegalArgumentException ex) {
 					Log.w(TAG, "Invalid recurrence rules, ignoring", ex);
 				}
-	
 				// status
 				switch (cursor.getInt(8)) {
 				case Events.STATUS_CONFIRMED:
@@ -346,11 +679,128 @@ public class LocalCalendar extends LocalCollection<Event> {
 				}
 				
 				populateReminders(e);
+				return true;
 			} else
-				throw new RecordNotFoundException();
+				return false;
 		} catch(RemoteException ex) {
-			throw new LocalStorageException(ex);
+			Log.e(TAG,Log.getStackTraceString(ex));
+			return false;
 		}
+	}
+
+	@Override
+	public void clearDirty(Resource resource) {
+		if(resource==null)
+			return;
+		Event e = (Event) resource;
+		if (e.getType() == TYPE.VEVENT)
+			super.clearDirty(resource);
+		else {
+			for (Uri uri : tasksURI(account)) {
+				pendingOperations.add(ContentProviderOperation
+						.newUpdate(
+								ContentUris.withAppendedId(uri,
+										resource.getLocalID()))
+						.withValue(Tasks._DIRTY, 0).build());
+			}
+		}
+	}
+
+
+
+	/* content provider (= database) querying */
+
+	@Override
+	public Event findById(long localID, boolean populate) throws LocalStorageException {
+		Event e=findById(localID, populate, TYPE.VEVENT);
+		if(e!=null)
+			return e;
+		return findById(localID, populate, TYPE.VTODO);
+	}
+	
+	public Event newResource(long localID, String resourceName, String eTag) {
+		return new Event(localID, resourceName, eTag,TYPE.UNKNOWN);
+	}
+	
+	public void deleteAllExceptRemoteNames(Resource[] remoteResources) {
+		String where;
+
+		if (remoteResources.length != 0) {
+			List<String> sqlFileNames = new LinkedList<String>();
+			for (Resource res : remoteResources)
+				sqlFileNames.add(DatabaseUtils.sqlEscapeString(res.getName()));
+			where = entryColumnRemoteName() + " NOT IN ("
+					+ StringUtils.join(sqlFileNames, ",") + ")";
+		} else
+			where = entryColumnRemoteName() + " IS NOT NULL";
+
+		Builder builder = ContentProviderOperation.newDelete(entriesURI())
+				.withSelection(
+						entryColumnParentID() + "=? AND (" + where + ")",
+						new String[] { String.valueOf(id) });
+		pendingOperations.add(builder.withYieldAllowed(true).build());
+		where = "";
+		if (remoteResources.length != 0) {
+			List<String> sqlFileNames = new LinkedList<String>();
+			for (Resource res : remoteResources)
+				sqlFileNames.add(DatabaseUtils.sqlEscapeString(res.getName()));
+			where = Tasks._SYNC_ID + " NOT IN ("
+					+ StringUtils.join(sqlFileNames, ",") + ")";
+		} else
+			where = entryColumnRemoteName() + " IS NOT NULL";
+		for (Uri uri : tasksURI(account)) {
+			builder = ContentProviderOperation.newDelete(uri).withSelection(
+					Tasks.LIST_ID + "=? AND (" + where + ")",
+					new String[] { String.valueOf(id) });
+		}
+		pendingOperations.add(builder.withYieldAllowed(true).build());
+	}
+
+	protected static List<Uri> tasksURI(Account account) {
+		List<Uri> uris = new ArrayList<Uri>();
+		PackageManager pm = ctx.getPackageManager();
+		try {
+			PackageInfo mirakel = pm.getPackageInfo("de.azapps.mirakelandroid",
+					PackageManager.GET_PROVIDERS);
+			if (mirakel != null && mirakel.versionCode > 18) {
+				uris.add(Tasks.CONTENT_URI
+						.buildUpon()
+						.appendQueryParameter(TaskContract.ACCOUNT_NAME,
+								account.name)
+						.appendQueryParameter(TaskContract.ACCOUNT_TYPE,
+								account.type)
+						.appendQueryParameter(
+								TaskContract.CALLER_IS_SYNCADAPTER, "true")
+						.build());
+			}
+		} catch (NameNotFoundException e) {
+			Log.w(TAG, "Mirakel not found");
+		}catch (Exception e) {
+			Log.wtf(TAG,Log.getStackTraceString(e));
+		}
+		try {
+			PackageInfo dmfs = pm.getPackageInfo("org.dmfs.provider.tasks",
+					PackageManager.GET_PROVIDERS);
+			if (dmfs != null) {
+				uris.add(Uri.parse("content://" + TaskContract.AUTHORITY_DMFS + "/" + Tasks.CONTENT_URI_PATH)
+						.buildUpon()
+						.appendQueryParameter(TaskContract.ACCOUNT_NAME,
+								account.name)
+						.appendQueryParameter(TaskContract.ACCOUNT_TYPE,
+								account.type)
+						.appendQueryParameter(
+								TaskContract.CALLER_IS_SYNCADAPTER, "true")
+						.build());
+			}
+		} catch (NameNotFoundException e) {
+			Log.w(TAG, "dmfs not found");
+		}
+		if (uris.size() == 0) {
+			//TODO show tost here
+			//Toast.makeText(ctx, R.string.install_taskprovider,
+			//		Toast.LENGTH_LONG).show();
+		}
+		return uris;
 	}
 
 	
@@ -442,8 +892,60 @@ public class LocalCalendar extends LocalCollection<Event> {
 
 	@Override
 	protected Builder buildEntry(Builder builder, Resource resource) {
-		Event event = (Event)resource;
+		Event event = (Event) resource;
 
+		if (event.getType() == TYPE.VEVENT)
+			builder = buildVEVENT(builder, event);
+		else if (event.getType() == TYPE.VTODO)
+			builder = buildVTODO(builder, event);
+		else
+			throw new RuntimeException();
+
+		return builder;
+	}
+
+	private Builder buildVTODO(Builder builder, Event todo) {
+		builder = builder.withValue(Tasks.LIST_ID, id)
+				.withValue(Tasks.TITLE, todo.getSummary())
+				.withValue(Tasks.SYNC1, todo.getETag())
+				.withValue(Tasks._SYNC_ID, todo.getName());
+		if(todo.getStatus()!=null&&todo.getDateCompleted()==null){
+			Status status=todo.getStatus();
+			if(status==Status.VTODO_CANCELLED){
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_CANCELLED);
+			}else if(status==Status.VTODO_COMPLETED){
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_COMPLETED);
+			}else if(status==Status.VTODO_IN_PROCESS){
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_IN_PROCESS);
+			}else if(status==Status.VTODO_NEEDS_ACTION){
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_NEEDS_ACTION);
+			}else{
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_DEFAULT);
+			}
+		}else{
+			builder.withValue(Tasks.STATUS, Tasks.STATUS_DEFAULT);
+		}
+		// .withValue(Tasks.U, value)//TODO uid??
+		if (todo.getDue() != null)
+			builder = builder.withValue(Tasks.DUE, todo.getDueInMillis());
+		if (todo.getPriority() != null)
+			builder = builder.withValue(Tasks.PRIORITY, todo.getPriority()
+					.getLevel());
+		if (todo.getDescription() != null)
+			builder = builder.withValue(Tasks.DESCRIPTION,
+					todo.getDescription());
+		if(todo.getCompleted()!=null){
+			builder.withValue(Tasks.PERCENT_COMPLETE, todo.getCompleted().getPercentage());
+		}
+		if(todo.getDateCompleted()!=null){
+			builder.withValue(Tasks.STATUS, Tasks.STATUS_COMPLETED);
+		}
+			
+
+		return builder;
+	}
+
+	private Builder buildVEVENT(Builder builder, Event event) {
 		builder = builder
 				.withValue(Events.CALENDAR_ID, id)
 				.withValue(entryColumnRemoteName(), event.getName())
@@ -452,6 +954,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 				.withValue(Events.ALL_DAY, event.isAllDay() ? 1 : 0)
 				.withValue(Events.DTSTART, event.getDtStartInMillis())
 				.withValue(Events.EVENT_TIMEZONE, event.getDtStartTzID())
+
 				.withValue(Events.HAS_ATTENDEE_DATA, event.getAttendees().isEmpty() ? 0 : 1)
 				.withValue(Events.GUESTS_CAN_INVITE_OTHERS, 1)
 				.withValue(Events.GUESTS_CAN_MODIFY, 1)
@@ -467,7 +970,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 			builder = builder.withValue(Events.RDATE, event.getRdate().getValue());
 		}
 		if (event.getExrule() != null)
-			builder = builder.withValue(Events.EXRULE, event.getExrule().getValue());
+			builder = builder.withValue(Events.EXRULE, event.getExrule()
+					.getValue());
 		if (event.getExdate() != null)
 			builder = builder.withValue(Events.EXDATE, event.getExdate().getValue());
 		
@@ -486,8 +990,10 @@ public class LocalCalendar extends LocalCollection<Event> {
 		if (event.getSummary() != null)
 			builder = builder.withValue(Events.TITLE, event.getSummary());
 		if (event.getLocation() != null)
-			builder = builder.withValue(Events.EVENT_LOCATION, event.getLocation());
+			builder = builder.withValue(Events.EVENT_LOCATION,
+					event.getLocation());
 		if (event.getDescription() != null)
+
 			builder = builder.withValue(Events.DESCRIPTION, event.getDescription());
 		
 		if (event.getOrganizer() != null && event.getOrganizer().getCalAddress() != null) {
@@ -496,6 +1002,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 				builder = builder.withValue(Events.ORGANIZER, organizer.getSchemeSpecificPart());
 		}
 		
+
 		Status status = event.getStatus();
 		if (status != null) {
 			int statusCode = Events.STATUS_TENTATIVE;
@@ -505,53 +1012,60 @@ public class LocalCalendar extends LocalCollection<Event> {
 				statusCode = Events.STATUS_CANCELED;
 			builder = builder.withValue(Events.STATUS, statusCode);
 		}
+
 		
 		builder = builder.withValue(Events.AVAILABILITY, event.isOpaque() ? Events.AVAILABILITY_BUSY : Events.AVAILABILITY_FREE);
 		
 		if (event.getForPublic() != null)
 			builder = builder.withValue(Events.ACCESS_LEVEL, event.getForPublic() ? Events.ACCESS_PUBLIC : Events.ACCESS_PRIVATE);
-
 		return builder;
 	}
 
-	
 	@Override
 	protected void addDataRows(Resource resource, long localID, int backrefIdx) {
 		Event event = (Event)resource;
 		for (Attendee attendee : event.getAttendees())
-			pendingOperations.add(buildAttendee(newDataInsertBuilder(Attendees.CONTENT_URI, Attendees.EVENT_ID, localID, backrefIdx), attendee).build());
+			pendingOperations.add(buildAttendee(
+					newDataInsertBuilder(Attendees.CONTENT_URI,
+							Attendees.EVENT_ID, localID, backrefIdx), attendee)
+					.build());
 		for (VAlarm alarm : event.getAlarms())
-			pendingOperations.add(buildReminder(newDataInsertBuilder(Reminders.CONTENT_URI, Reminders.EVENT_ID, localID, backrefIdx), alarm).build());
+			pendingOperations.add(buildReminder(
+					newDataInsertBuilder(Reminders.CONTENT_URI,
+							Reminders.EVENT_ID, localID, backrefIdx), alarm)
+					.build());
 	}
-	
+
 	@Override
 	protected void removeDataRows(Resource resource) {
 		Event event = (Event)resource;
 		pendingOperations.add(ContentProviderOperation.newDelete(syncAdapterURI(Attendees.CONTENT_URI))
 				.withSelection(Attendees.EVENT_ID + "=?",
-				new String[] { String.valueOf(event.getLocalID()) }).build());
-		pendingOperations.add(ContentProviderOperation.newDelete(syncAdapterURI(Reminders.CONTENT_URI))
+						new String[] { String.valueOf(event.getLocalID()) })
+				.build());
+		pendingOperations.add(ContentProviderOperation
+				.newDelete(syncAdapterURI(Reminders.CONTENT_URI))
 				.withSelection(Reminders.EVENT_ID + "=?",
-				new String[] { String.valueOf(event.getLocalID()) }).build());
+						new String[] { String.valueOf(event.getLocalID()) })
+				.build());
 	}
 
-	
 	@SuppressLint("InlinedApi")
 	protected Builder buildAttendee(Builder builder, Attendee attendee) {
 		Uri member = Uri.parse(attendee.getValue());
 		String email = member.getSchemeSpecificPart();
-		
-		Cn cn = (Cn)attendee.getParameter(Parameter.CN);
+
+		Cn cn = (Cn) attendee.getParameter(Parameter.CN);
 		if (cn != null)
 			builder = builder.withValue(Attendees.ATTENDEE_NAME, cn.getValue());
-		
+
 		int type = Attendees.TYPE_NONE;
-		
-		CuType cutype = (CuType)attendee.getParameter(Parameter.CUTYPE);
+
+		CuType cutype = (CuType) attendee.getParameter(Parameter.CUTYPE);
 		if (cutype == CuType.RESOURCE)
 			type = Attendees.TYPE_RESOURCE;
 		else {
-			Role role = (Role)attendee.getParameter(Parameter.ROLE);
+			Role role = (Role) attendee.getParameter(Parameter.ROLE);
 			int relationship;
 			if (role == Role.CHAIR)
 				relationship = Attendees.RELATIONSHIP_ORGANIZER;
@@ -562,9 +1076,10 @@ public class LocalCalendar extends LocalCollection<Event> {
 				else if (role == Role.REQ_PARTICIPANT)
 					type = Attendees.TYPE_REQUIRED;
 			}
-			builder = builder.withValue(Attendees.ATTENDEE_RELATIONSHIP, relationship);
+			builder = builder.withValue(Attendees.ATTENDEE_RELATIONSHIP,
+					relationship);
 		}
-		
+
 		int status = Attendees.ATTENDEE_STATUS_NONE;
 		PartStat partStat = (PartStat)attendee.getParameter(Parameter.PARTSTAT);
 		if (partStat == null || partStat == PartStat.NEEDS_ACTION)
@@ -575,16 +1090,15 @@ public class LocalCalendar extends LocalCollection<Event> {
 			status = Attendees.ATTENDEE_STATUS_DECLINED;
 		else if (partStat == PartStat.TENTATIVE)
 			status = Attendees.ATTENDEE_STATUS_TENTATIVE;
-		
-		return builder
-			.withValue(Attendees.ATTENDEE_EMAIL, email)
-			.withValue(Attendees.ATTENDEE_TYPE, type)
-			.withValue(Attendees.ATTENDEE_STATUS, status);
+
+		return builder.withValue(Attendees.ATTENDEE_EMAIL, email)
+				.withValue(Attendees.ATTENDEE_TYPE, type)
+				.withValue(Attendees.ATTENDEE_STATUS, status);
 	}
-	
+
 	protected Builder buildReminder(Builder builder, VAlarm alarm) {
 		int minutes = 0;
-		
+
 		Dur duration;
 		if (alarm.getTrigger() != null && (duration = alarm.getTrigger().getDuration()) != null)
 			minutes = duration.getDays() * 24*60 + duration.getHours()*60 + duration.getMinutes();
@@ -609,5 +1123,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 	protected Uri calendarsURI() {
 		return calendarsURI(account);
 	}
+
+
+
 
 }

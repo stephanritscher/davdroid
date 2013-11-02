@@ -4,6 +4,9 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid.resource;
 
@@ -44,26 +47,17 @@ public abstract class LocalCollection<T extends Resource> {
 	 *  apply syncAdapterURI() before returning a value */
 	abstract protected Uri entriesURI();
 
-	/** column name of the type of the account the entry belongs to */
 	abstract protected String entryColumnAccountType();
-	/** column name of the name of the account the entry belongs to */
 	abstract protected String entryColumnAccountName();
 	
-	/** column name of the collection ID the entry belongs to */
 	abstract protected String entryColumnParentID();
-	/** column name of an entry's ID */
 	abstract protected String entryColumnID();
-	/** column name of an entry's file name on the WebDAV server */
 	abstract protected String entryColumnRemoteName();
-	/** column name of an entry's last ETag on the WebDAV server; null if entry hasn't been uploaded yet */
 	abstract protected String entryColumnETag();
 	
-	/** column name of an entry's "dirty" flag (managed by content provider) */
 	abstract protected String entryColumnDirty();
-	/** column name of an entry's "deleted" flag (managed by content provider) */
 	abstract protected String entryColumnDeleted();
 	
-	/** column name of an entry's UID */
 	abstract protected String entryColumnUID();
 	
 
@@ -75,12 +69,9 @@ public abstract class LocalCollection<T extends Resource> {
 
 	// collection operations
 	
-	/** gets the ID if the collection (for instance, ID of the Android calendar) */
 	abstract public long getId();
-	/** gets the CTag of the collection */
-	abstract public String getCTag() throws LocalStorageException;
-	/** sets the CTag of the collection */
-	abstract public void setCTag(String cTag) throws LocalStorageException;
+	abstract public String getCTag();
+	abstract public void setCTag(String cTag);
 
 	
 	// content provider (= database) querying
@@ -93,6 +84,7 @@ public abstract class LocalCollection<T extends Resource> {
 	 * @throws LocalStorageException when the content provider couldn't be queried
 	 */
 	public long[] findNew() throws LocalStorageException {
+		// new records are 1) dirty, and 2) don't have a remote file name yet
 		String where = entryColumnDirty() + "=1 AND " + entryColumnETag() + " IS NULL";
 		if (entryColumnParentID() != null)
 			where += " AND " + entryColumnParentID() + "=" + String.valueOf(getId());
@@ -132,6 +124,7 @@ public abstract class LocalCollection<T extends Resource> {
 	 * @throws LocalStorageException when the content provider couldn't be queried
 	 */
 	public long[] findUpdated() throws LocalStorageException {
+		// updated records are 1) dirty, and 2) already have a remote file name
 		String where = entryColumnDirty() + "=1 AND " + entryColumnETag() + " IS NOT NULL";
 		if (entryColumnParentID() != null)
 			where += " AND " + entryColumnParentID() + "=" + String.valueOf(getId());
@@ -176,6 +169,7 @@ public abstract class LocalCollection<T extends Resource> {
 		} catch(RemoteException ex) {
 			throw new LocalStorageException(ex);
 		}
+		
 	}
 	
 	/**
@@ -229,8 +223,9 @@ public abstract class LocalCollection<T extends Resource> {
 		}
 	}
 
-	/** populates all data fields from the content provider */
+
 	public abstract void populate(Resource record) throws LocalStorageException;
+	
 
 	
 	// create/update/delete
@@ -243,7 +238,6 @@ public abstract class LocalCollection<T extends Resource> {
 	 * @return the new resource object */
 	abstract public T newResource(long localID, String resourceName, String eTag);
 	
-	/** Enqueues adding the resource (including all data) to the local collection. Requires commit(). */
 	public void add(Resource resource) {
 		int idx = pendingOperations.size();
 		pendingOperations.add(
@@ -268,7 +262,6 @@ public abstract class LocalCollection<T extends Resource> {
 		addDataRows(remoteResource, localResource.getLocalID(), -1);
 	}
 
-	/** Enqueues deleting a resource from the local collection. Requires commit(). */
 	public void delete(Resource resource) {
 		pendingOperations.add(ContentProviderOperation
 				.newDelete(ContentUris.withAppendedId(entriesURI(), resource.getLocalID()))
@@ -282,7 +275,6 @@ public abstract class LocalCollection<T extends Resource> {
 	 */
 	public abstract void deleteAllExceptRemoteNames(Resource[] remoteResources);
 	
-	/** Updates the locally-known ETag of a resource. */
 	public void updateETag(Resource res, String eTag) throws LocalStorageException {
 		Log.d(TAG, "Setting ETag of local resource " + res + " to " + eTag);
 		
@@ -294,8 +286,6 @@ public abstract class LocalCollection<T extends Resource> {
 			throw new LocalStorageException(e);
 		}
 	}
-	
-	/** Enqueues removing the dirty flag from a locally-stored resource. Requires commit(). */
 	public void clearDirty(Resource resource) {
 		pendingOperations.add(ContentProviderOperation
 				.newUpdate(ContentUris.withAppendedId(entriesURI(), resource.getLocalID()))
@@ -303,7 +293,6 @@ public abstract class LocalCollection<T extends Resource> {
 				.build());
 	}
 
-	/** Commits enqueued operations to the content provider (for batch operations). */
 	public void commit() throws LocalStorageException {
 		if (!pendingOperations.isEmpty())
 			try {
@@ -319,13 +308,11 @@ public abstract class LocalCollection<T extends Resource> {
 
 	
 	// helpers
-
+	
 	protected void queueOperation(Builder builder) {
 		if (builder != null)
 			pendingOperations.add(builder.build());
 	}
-
-	/** Appends account type, name and CALLER_IS_SYNCADAPTER to an Uri. */
 	protected Uri syncAdapterURI(Uri baseURI) {
 		return baseURI.buildUpon()
 				.appendQueryParameter(entryColumnAccountType(), account.type)
@@ -353,9 +340,7 @@ public abstract class LocalCollection<T extends Resource> {
 	 */
 	protected abstract Builder buildEntry(Builder builder, Resource resource);
 	
-	/** Enqueues adding extra data rows of the resource to the local collection. */
 	protected abstract void addDataRows(Resource resource, long localID, int backrefIdx);
-	
-	/** Enqueues removing all extra data rows of the resource from the local collection. */
 	protected abstract void removeDataRows(Resource resource);
+
 }
