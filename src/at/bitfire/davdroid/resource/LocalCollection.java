@@ -201,4 +201,5 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 	
 	protected abstract void addDataRows(ResourceType resource, long localID, int backrefIdx);
 	protected abstract void removeDataRows(ResourceType resource);
+
 }

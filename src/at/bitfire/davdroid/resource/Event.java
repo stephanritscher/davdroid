@@ -59,6 +59,10 @@ import android.util.Log;
 import at.bitfire.davdroid.Constants;
 
 public class Event extends Resource {
+	public enum TYPE{
+		VEVENT,VTODO,UNKNOWN;
+	}
+	
 	private final static String TAG = "davdroid.Event";
 
 	private TimeZoneRegistry tzRegistry;
@@ -75,7 +79,7 @@ public class Event extends Resource {
 	@Getter	@Setter	private Boolean forPublic;
 	@Getter	@Setter	private Status status;
 
-	@Getter	@Setter	private boolean isEvent;
+	@Getter	@Setter	private TYPE type;
 
 	@Getter	@Setter	private Organizer organizer;
 	@Getter	private List<Attendee> attendees = new LinkedList<Attendee>();
@@ -90,15 +94,16 @@ public class Event extends Resource {
 		attendees.add(attendee);
 	}
 
-	public Event(String name, String ETag) {
+	public Event(String name, String ETag, TYPE type) {
 		super(name, ETag);
-
+		
 		DefaultTimeZoneRegistryFactory factory = new DefaultTimeZoneRegistryFactory();
 		tzRegistry = factory.createRegistry();
+		this.type=type;
 	}
 
-	public Event(long localID, String name, String ETag) {
-		this(name, ETag);
+	public Event(long localID, String name, String ETag, TYPE type) {
+		this(name, ETag,type);
 		this.localID = localID;
 	}
 
@@ -115,13 +120,13 @@ public class Event extends Resource {
 		if (events.size() > 0) {
 			// event
 			parseEvent(events);
-			isEvent = true;
+			type = TYPE.VEVENT;
 		} else {
 			ComponentList todos = ical.getComponents(Component.VTODO);
 			if (todos.size() > 0) {
 				//task
 				parseTodo(todos);
-				isEvent = false;
+				type = TYPE.VTODO;
 			} else {
 				Log.wtf(TAG, "unkown component type");
 			}
@@ -177,6 +182,7 @@ public class Event extends Resource {
 		priority=todo.getPriority();
 		completed=todo.getPercentComplete();
 		due=todo.getDue();
+		Log.d(TAG,"parsed VTODO");
 
 	}
 
@@ -234,9 +240,9 @@ public class Event extends Resource {
 				new ProdId("-//bitfire web engineering//DAVdroid "
 						+ Constants.APP_VERSION + "//EN"));
 		ical.getProperties().add(Version.VERSION_2_0);
-		if(isEvent){
+		if(type==TYPE.VEVENT){
 			fromEvent(ical);
-		}else{
+		}else if(type==TYPE.VTODO){
 			fromToDo(ical);
 		}
 
@@ -330,6 +336,16 @@ public class Event extends Resource {
 			DateTime start = new DateTime(tsStart);
 			start.setTimeZone(tzRegistry.getTimeZone(tzID));
 			dtStart = new DtStart(start);
+		}
+	}
+	
+	public void setDue(long tsDue, String tzID) {
+		if (tzID == null) { // all-day
+			due = new Due(new Date(tsDue));
+		} else {
+			DateTime due = new DateTime(tsDue);
+			due.setTimeZone(tzRegistry.getTimeZone(tzID));
+			this.due = new Due(due);
 		}
 	}
 

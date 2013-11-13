@@ -9,6 +9,7 @@ package at.bitfire.davdroid.resource;
 
 import java.net.URISyntaxException;
 
+import at.bitfire.davdroid.resource.Event.TYPE;
 import at.bitfire.davdroid.webdav.WebDavResource.MultigetType;
 
 public class CalDavCalendar extends RemoteCollection<Event> { 
@@ -26,7 +27,7 @@ public class CalDavCalendar extends RemoteCollection<Event> {
 	
 	@Override
 	protected Event newResourceSkeleton(String name, String ETag) {
-		return new Event(name, ETag);
+		return new Event(name, ETag,TYPE.UNKNOWN);
 	}
 	
 	
