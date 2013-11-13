@@ -53,6 +53,7 @@ public class HttpPropfind extends HttpEntityEnclosingRequestBase {
 			propfind.prop.resourcetype = new DavProp.DavPropResourceType();
 			propfind.prop.addressbookDescription = new DavProp.DavPropAddressbookDescription();
 			propfind.prop.calendarDescription = new DavProp.DavPropCalendarDescription();
+			propfind.prop.calendarColor = new DavProp.DavPropCalendarColor();
 			break;
 		case COLLECTION_CTAG:
 			depth = 0;
@@ -74,8 +75,8 @@ public class HttpPropfind extends HttpEntityEnclosingRequestBase {
 			setEntity(new StringEntity(writer.toString(), "UTF-8"));
 			
 			Log.d(TAG, "Prepared PROPFIND request: " + writer.toString());
-		} catch(Exception e) {
-			Log.w(TAG, e.getMessage());
+		} catch(Exception ex) {
+			Log.e(TAG, "Couldn't prepare PROPFIND request", ex);
 			abort();
 		}
 	}

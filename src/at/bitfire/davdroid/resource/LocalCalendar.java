@@ -11,6 +11,8 @@ import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import lombok.Getter;
 import net.fortuna.ical4j.model.Parameter;
@@ -91,12 +93,23 @@ public class LocalCalendar extends LocalCollection<Event> {
 	public static void create(Account account, ContentResolver resolver, ServerInfo.ResourceInfo info) throws RemoteException {
 		ContentProviderClient client = resolver.acquireContentProviderClient(CalendarContract.AUTHORITY);
 		
+		int color = 0xFFC3EA6E;		// fallback: "DAVdroid green"
+		if (info.getColor() != null) {
+			Pattern p = Pattern.compile("#(\\p{XDigit}{6})(\\p{XDigit}{2})?");
+			Matcher m = p.matcher(info.getColor());
+			if (m.find()) {
+				int color_rgb = Integer.parseInt(m.group(1), 16);
+				byte color_alpha = m.group(2) != null ? Byte.parseByte(m.group(2), 16) : -1;
+				color = (color_alpha << 24) | color_rgb;
+			}
+		}
+		
 		ContentValues values = new ContentValues();
 		values.put(Calendars.ACCOUNT_NAME, account.name);
 		values.put(Calendars.ACCOUNT_TYPE, account.type);
 		values.put(Calendars.NAME, info.getPath());
 		values.put(Calendars.CALENDAR_DISPLAY_NAME, info.getTitle());
-		values.put(Calendars.CALENDAR_COLOR, 0xFFC3EA6E);
+		values.put(Calendars.CALENDAR_COLOR, color);
 		values.put(Calendars.CALENDAR_ACCESS_LEVEL, Calendars.CAL_ACCESS_OWNER);
 		values.put(Calendars.ALLOWED_AVAILABILITY, Events.AVAILABILITY_BUSY + "," + Events.AVAILABILITY_FREE + "," + Events.AVAILABILITY_TENTATIVE);
 		values.put(Calendars.ALLOWED_ATTENDEE_TYPES, Attendees.TYPE_NONE + "," + Attendees.TYPE_REQUIRED + "," + Attendees.TYPE_OPTIONAL + "," + Attendees.TYPE_RESOURCE);
