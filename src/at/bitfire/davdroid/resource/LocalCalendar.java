@@ -9,8 +9,11 @@ package at.bitfire.davdroid.resource;
 
 import java.net.URISyntaxException;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,6 +32,7 @@ import net.fortuna.ical4j.model.property.Priority;
 import net.fortuna.ical4j.model.property.RDate;
 import net.fortuna.ical4j.model.property.RRule;
 import net.fortuna.ical4j.model.property.Status;
+import net.fortuna.ical4j.vcard.property.Uid;
 
 import org.apache.commons.lang.StringUtils;
 import org.dmfs.provider.tasks.TaskContract;
@@ -43,6 +47,7 @@ import android.content.ContentProviderOperation.Builder;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.net.Uri;
@@ -66,6 +71,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 	protected String path, cTag;
 
 	protected static String COLLECTION_COLUMN_CTAG = Calendars.CAL_SYNC1;
+
+	private static Context ctx;
 
 	/* database fields */
 
@@ -157,7 +164,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 	}
 
 	public static LocalCalendar[] findAll(Account account,
-			ContentProviderClient providerClient) throws RemoteException {
+			ContentProviderClient providerClient,Context ctx_) throws RemoteException {
+		ctx=ctx_;
 		Cursor cursor = providerClient.query(calendarsURI(account),
 				new String[] { Calendars._ID, Calendars.NAME,
 						COLLECTION_COLUMN_CTAG }, Calendars.DELETED + "=0 AND "
@@ -210,7 +218,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 			return new Event(cursor.getLong(0), cursor.getString(1),
 					cursor.getString(2), TYPE.VEVENT);
 		else {
-			cursor = providerClient.query(entriesURI(), new String[] {
+			cursor = ctx.getContentResolver().query(TaskContract.CONTENT_URI, new String[] {
 					Tasks._ID, Tasks.TITLE, Tasks.SYNC1 }, Tasks.LIST_ID
 					+ "=? AND " + Tasks._SYNC_ID + "=?",
 					new String[] { String.valueOf(id), remoteName }, null);
@@ -221,6 +229,65 @@ public class LocalCalendar extends LocalCollection<Event> {
 			else
 				return null;
 		}
+	}
+	
+	@Override
+	public Resource[] findDeleted() throws RemoteException {
+		LinkedList<Resource> deleted = new LinkedList<Resource>();
+		deleted.addAll(Arrays.asList(super.findDeleted()));
+		String where = Tasks._DELETED + "=1";
+		if (Tasks.LIST_ID != null)
+			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
+		//TODO fix etag/sync1 in mirakel
+		Cursor cursor = ctx.getContentResolver().query(tasksURI(account),
+				new String[] { Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 },
+				where, null, null);
+		while (cursor != null && cursor.moveToNext())
+			deleted.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), false));
+		return deleted.toArray(new Resource[0]);
+	}
+	
+	@Override
+	public Resource[] findNew() throws RemoteException {
+		LinkedList<Resource> fresh = new LinkedList<Resource>();
+		fresh.addAll(Arrays.asList(super.findNew()));
+		//TODO fix in Mirakel: Do only create uuids if account=tw-sync!!
+		String where = tasksURI(account) + "=1 AND " + Tasks._SYNC_ID + " IS NULL";
+		if (entryColumnParentID() != null)
+			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
+		Cursor cursor = ctx.getContentResolver().query(tasksURI(account),
+				new String[] { Tasks._ID },
+				where, null, null);
+		while (cursor != null && cursor.moveToNext()) {
+			String uid = UUID.randomUUID().toString(),
+				   resourceName = uid + fileExtension();
+			Resource resource = findById(cursor.getLong(0), resourceName, null, true); //new Event(cursor.getLong(0), resourceName, null);
+			resource.setUid(uid);
+
+			// new record: set generated resource name in database
+			pendingOperations.add(ContentProviderOperation
+					.newUpdate(ContentUris.withAppendedId(Tasks.CONTENT_URI, resource.getLocalID()))
+					.withValue(Tasks._SYNC_ID, resourceName)
+					.build());
+			
+			fresh.add(resource);
+		}
+		return fresh.toArray(new Resource[0]);
+	}
+	
+	@Override
+	public Resource[] findDirty() throws RemoteException {
+		LinkedList<Resource> dirty = new LinkedList<Resource>();
+		dirty.addAll(Arrays.asList(super.findDirty()));
+		String where = Tasks._DIRTY + "=1";
+		if (entryColumnParentID() != null)
+			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
+		Cursor cursor = ctx.getContentResolver().query(tasksURI(account),
+				new String[] { Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 },
+				where, null, null);
+		while (cursor != null && cursor.moveToNext())
+			dirty.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), true));
+		return dirty.toArray(new Resource[0]);
 	}
 
 	@Override
@@ -498,7 +565,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 	}
 
 	protected static Uri tasksURI(Account account) {
-		return Calendars.CONTENT_URI
+		return Tasks.CONTENT_URI
 				.buildUpon()
 				.appendQueryParameter(TaskContract.ACCOUNT_NAME, account.name)
 				.appendQueryParameter(TaskContract.ACCOUNT_TYPE, account.type)

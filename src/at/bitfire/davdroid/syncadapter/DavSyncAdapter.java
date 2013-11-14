@@ -39,6 +39,7 @@ public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter {
 	@Override
 	public void onPerformSync(Account account, Bundle extras, String authority,	ContentProviderClient provider, SyncResult syncResult) {
 		Log.i(TAG, "Performing sync for authority " + authority);
+		android.os.Debug.waitForDebugger();
 		
 		// set class loader for iCal4j ResourceLoader
 		Thread.currentThread().setContextClassLoader(getContext().getClassLoader());
