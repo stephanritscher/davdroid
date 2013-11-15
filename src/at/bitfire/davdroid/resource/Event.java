@@ -135,6 +135,7 @@ public class Event extends Resource {
 	}
 
 	private void parseTodo(ComponentList todos) throws SocketException {
+
 		if (todos == null || todos.isEmpty())
 			return;
 
@@ -322,7 +323,8 @@ public class Event extends Resource {
 	}
 
 	public long getDtStartInMillis() {
-		return dtStart.getDate().getTime();
+	
+		return dtStart==null?0:dtStart.getDate().getTime();
 	}
 
 	public String getDtStartTzID() {
@@ -392,6 +394,8 @@ public class Event extends Resource {
 	}
 
 	protected boolean hasNoTime(DateProperty date) {
+		if(date==null)
+			return true;
 		return !(date.getDate() instanceof DateTime);
 	}
 
@@ -410,7 +414,7 @@ public class Event extends Resource {
 
 	/* guess matching Android timezone ID */
 	protected void validateTimeZone(DateProperty date) {
-		if (date.isUtc() || hasNoTime(date))
+		if (date==null||date.isUtc() || hasNoTime(date))
 			return;
 
 		String tzID = getTzId(date);
@@ -436,5 +440,18 @@ public class Event extends Resource {
 
 		if (dtStart == null)
 			throw new ValidationException("dtStart must not be empty");
+	}
+
+	public long getDueInMillis() {
+		if (hasNoTime(due) && due == null) {
+			// dtEnd = dtStart + 1 day
+			Calendar c = Calendar.getInstance(TimeZone
+					.getTimeZone(Time.TIMEZONE_UTC));
+			c.setTime(due.getDate());
+			c.add(Calendar.DATE, 1);
+			return c.getTimeInMillis();
+		}
+
+		return due.getDate().getTime();
 	}
 }

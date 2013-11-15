@@ -133,6 +133,7 @@ public class SyncManager {
 		}
 		
 		// PHASE 3: DOWNLOAD NEW/REMOTELY-CHANGED RESOURCES
+
 		Log.i(TAG, "Adding " + resourcesToAdd.size() + " remote resource(s)");
 		if (!resourcesToAdd.isEmpty()) {
 			for (Resource res : dav.multiGet(resourcesToAdd.toArray(new Resource[0]))) {

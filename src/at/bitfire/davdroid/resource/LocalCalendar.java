@@ -20,6 +20,7 @@ import java.util.regex.Pattern;
 import lombok.Getter;
 import net.fortuna.ical4j.model.Parameter;
 import net.fortuna.ical4j.model.ParameterList;
+import net.fortuna.ical4j.model.ValidationException;
 import net.fortuna.ical4j.model.parameter.Cn;
 import net.fortuna.ical4j.model.parameter.CuType;
 import net.fortuna.ical4j.model.parameter.PartStat;
@@ -185,6 +186,23 @@ public class LocalCalendar extends LocalCollection<Event> {
 		this.path = path;
 		this.cTag = cTag;
 	}
+	
+	@Override
+	public void add(Event resource) throws net.fortuna.ical4j.model.ValidationException {
+		if(resource.getType()==TYPE.VEVENT){
+			super.add(resource);
+		}else if(resource.getType()==TYPE.VTODO){
+			int idx = pendingOperations.size();
+			pendingOperations.add(
+					buildEntry(ContentProviderOperation.newInsert(tasksURI(account)), resource)
+					.withYieldAllowed(true)
+					.build());
+			
+			addDataRows(resource, -1, idx);
+		}else{
+			throw new ValidationException("Unkown Type");
+		}
+	};
 
 	/* collection operations */
 
@@ -218,7 +236,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 			return new Event(cursor.getLong(0), cursor.getString(1),
 					cursor.getString(2), TYPE.VEVENT);
 		else {
-			cursor = ctx.getContentResolver().query(TaskContract.CONTENT_URI, new String[] {
+			cursor = ctx.getContentResolver().query(tasksURI(account), new String[] {
 					Tasks._ID, Tasks.TITLE, Tasks.SYNC1 }, Tasks.LIST_ID
 					+ "=? AND " + Tasks._SYNC_ID + "=?",
 					new String[] { String.valueOf(id), remoteName }, null);
@@ -252,8 +270,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 		LinkedList<Resource> fresh = new LinkedList<Resource>();
 		fresh.addAll(Arrays.asList(super.findNew()));
 		//TODO fix in Mirakel: Do only create uuids if account=tw-sync!!
-		String where = tasksURI(account) + "=1 AND " + Tasks._SYNC_ID + " IS NULL";
-		if (entryColumnParentID() != null)
+		String where = Tasks._DIRTY + "=1 AND " + Tasks._SYNC_ID + " IS NULL";
+		if (Tasks.LIST_ID != null)
 			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
 		Cursor cursor = ctx.getContentResolver().query(tasksURI(account),
 				new String[] { Tasks._ID },
@@ -280,7 +298,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 		LinkedList<Resource> dirty = new LinkedList<Resource>();
 		dirty.addAll(Arrays.asList(super.findDirty()));
 		String where = Tasks._DIRTY + "=1";
-		if (entryColumnParentID() != null)
+		if (Tasks.LIST_ID != null)
 			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
 		Cursor cursor = ctx.getContentResolver().query(tasksURI(account),
 				new String[] { Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 },
@@ -289,7 +307,32 @@ public class LocalCalendar extends LocalCollection<Event> {
 			dirty.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), true));
 		return dirty.toArray(new Resource[0]);
 	}
-
+@ Override
+	public void commit() throws RemoteException,
+			android.content.OperationApplicationException {
+		if (!pendingOperations.isEmpty()) {
+			Log.i(TAG, "Committing " + pendingOperations.size() + " operations");
+			ContentResolver resolver = ctx.getContentResolver();
+			//TODO remove this(there must be a better way to do this...)
+			ArrayList<ContentProviderOperation> t = new ArrayList<ContentProviderOperation>();
+			for (ContentProviderOperation op : pendingOperations) {
+				t.add(op);
+				try {
+					resolver.applyBatch(CalendarContract.AUTHORITY, t);
+				} catch (Exception e) {
+					try {
+						resolver.applyBatch(TaskContract.AUTHORITY, t);
+					} catch (Exception e1) {
+						throw new RuntimeException();
+					}
+				}
+				t.clear();
+			}
+			pendingOperations.clear();
+		}
+	};
+	
+	
 	@Override
 	public void populate(Resource resource) throws RemoteException {
 		Event e = (Event) resource;
@@ -313,7 +356,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 
 	private boolean populateToDo(Event e) throws RemoteException {
 		Cursor cursor = providerClient.query(
-				ContentUris.withAppendedId(TaskContract.CONTENT_URI, e.getLocalID()),
+				ContentUris.withAppendedId(tasksURI(account), e.getLocalID()),
 				new String[] {
 				/* 0 */Tasks.TITLE, Tasks.LOCATION, Tasks.DESCRIPTION,
 						Tasks.DUE,Tasks.STATUS,Tasks.PRIORITY,Tasks._ID,Tasks.ACCOUNT_NAME }, null, null, null);
@@ -581,6 +624,33 @@ public class LocalCalendar extends LocalCollection<Event> {
 
 	@Override
 	protected Builder buildEntry(Builder builder, Event event) {
+		
+		if(event.getType()==TYPE.VEVENT)
+			builder = buildVEVENT(builder, event);
+		else if(event.getType()==TYPE.VTODO)
+			builder=buildVTODO(builder,event);
+		else
+			throw new RuntimeException();
+
+		return builder;
+	}
+
+	private Builder buildVTODO(Builder builder, Event event) {
+		builder=builder.withValue(Tasks.LIST_ID, id)
+				.withValue(Tasks.TITLE, event.getSummary())
+				.withValue(Tasks.SYNC1, event.getETag());
+//				.withValue(Tasks.U, value)//TODO uid??
+		if(event.getDue()!=null)
+				builder=builder.withValue(Tasks.DUE, event.getDueInMillis());
+		if(event.getPriority()!=null)
+			builder=builder.withValue(Tasks.PRIORITY, event.getPriority().getLevel());
+		if(event.getDescription()!=null)
+			builder=builder.withValue(Tasks.DESCRIPTION, event.getDescription());
+				
+		return builder;
+	}
+
+	private Builder buildVEVENT(Builder builder, Event event) {
 		builder = builder
 				.withValue(Events.CALENDAR_ID, id)
 				.withValue(entryColumnRemoteName(), event.getName())
@@ -633,7 +703,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 			builder = builder.withValue(Events.ACCESS_LEVEL, event
 					.getForPublic() ? Events.ACCESS_PUBLIC
 					: Events.ACCESS_PRIVATE);
-
 		return builder;
 	}
 

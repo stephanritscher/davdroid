@@ -18,6 +18,7 @@ import net.fortuna.ical4j.data.ParserException;
 
 import org.apache.http.HttpException;
 import org.apache.http.auth.AuthenticationException;
+import org.dmfs.provider.tasks.TaskContract;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -63,7 +64,6 @@ public class CalendarsSyncAdapterService extends Service {
 			super(context);
 			this.ctx=context;
 		}
-		
 		@Override
 		protected Map<LocalCollection, RemoteCollection> getSyncPairs(Account account, ContentProviderClient provider) {
 			try {
