@@ -254,8 +254,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 		LinkedList<Resource> deleted = new LinkedList<Resource>();
 		deleted.addAll(Arrays.asList(super.findDeleted()));
 		String where = Tasks._DELETED + "=1";
-		if (Tasks.LIST_ID != null)
-			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
+//		if (Tasks.LIST_ID != null)
+//			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
 		//TODO fix etag/sync1 in mirakel
 		Cursor cursor = ctx.getContentResolver().query(tasksURI(account),
 				new String[] { Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 },
@@ -271,8 +271,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 		fresh.addAll(Arrays.asList(super.findNew()));
 		//TODO fix in Mirakel: Do only create uuids if account=tw-sync!!
 		String where = Tasks._DIRTY + "=1 AND " + Tasks._SYNC_ID + " IS NULL";
-		if (Tasks.LIST_ID != null)
-			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
+//		if (Tasks.LIST_ID != null)
+//			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
 		Cursor cursor = ctx.getContentResolver().query(tasksURI(account),
 				new String[] { Tasks._ID },
 				where, null, null);
@@ -298,8 +298,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 		LinkedList<Resource> dirty = new LinkedList<Resource>();
 		dirty.addAll(Arrays.asList(super.findDirty()));
 		String where = Tasks._DIRTY + "=1";
-		if (Tasks.LIST_ID != null)
-			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
+//		if (Tasks.LIST_ID != null)
+//			where += " AND " + Tasks.LIST_ID + "=" + String.valueOf(getId());
 		Cursor cursor = ctx.getContentResolver().query(tasksURI(account),
 				new String[] { Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 },
 				where, null, null);
