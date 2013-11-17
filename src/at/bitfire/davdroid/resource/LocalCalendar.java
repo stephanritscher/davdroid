@@ -161,7 +161,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 		Log.i(TAG, "Inserting calendar: " + values.toString() + " -> "
 				+ calendarsURI(account).toString());
 		calendar.insert(calendarsURI(account), values);
-		calendar.insert(tasksURI(account), values);
+//		calendar.insert(tasksURI(account), values);
 	}
 
 	public static LocalCalendar[] findAll(Account account,
@@ -237,9 +237,9 @@ public class LocalCalendar extends LocalCollection<Event> {
 					cursor.getString(2), TYPE.VEVENT);
 		else {
 			cursor = ctx.getContentResolver().query(tasksURI(account), new String[] {
-					Tasks._ID, Tasks.TITLE, Tasks.SYNC1 }, Tasks.LIST_ID
-					+ "=? AND " + Tasks._SYNC_ID + "=?",
-					new String[] { String.valueOf(id), remoteName }, null);
+					Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 }, /*Tasks.LIST_ID
+					+ "=? AND " +*/ Tasks._SYNC_ID + "=?",
+					new String[] { /*String.valueOf(id),*/ remoteName }, null);
 
 			if (cursor != null && cursor.moveToNext())
 				return new Event(cursor.getLong(0), cursor.getString(1),
