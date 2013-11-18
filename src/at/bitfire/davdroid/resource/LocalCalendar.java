@@ -238,7 +238,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 		else {
 			cursor = ctx.getContentResolver().query(tasksURI(account), new String[] {
 					Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 }, /*Tasks.LIST_ID
-					+ "=? AND " +*/ Tasks._SYNC_ID + "=?",
+					+ "=? AND " +*/ Tasks._SYNC_ID + "='?'",
 					new String[] { /*String.valueOf(id),*/ remoteName }, null);
 
 			if (cursor != null && cursor.moveToNext())
