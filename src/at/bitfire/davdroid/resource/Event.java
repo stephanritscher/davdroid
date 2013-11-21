@@ -267,8 +267,10 @@ public class Event extends Resource {
 			todo.getProperties().add(forPublic ? Clazz.PUBLIC : Clazz.PRIVATE);
 		
 		props.add(priority);
-		props.add(due);
-		props.add(completed);
+		if(due!=null)
+			props.add(due);
+		if(completed!=null)
+			props.add(completed);
 
 		ical.getComponents().add(todo);
 		
@@ -277,9 +279,9 @@ public class Event extends Resource {
 	private void addComonProps(PropertyList props) {
 		if (uid != null)
 			props.add(new Uid(uid));
-
-		props.add(dtStart);
 		
+		if(dtStart!=null)
+			props.add(dtStart);
 		if (rrule != null)
 			props.add(rrule);
 		if (rdate != null)

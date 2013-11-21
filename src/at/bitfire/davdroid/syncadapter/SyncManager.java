@@ -21,6 +21,7 @@ import android.content.OperationApplicationException;
 import android.content.SyncResult;
 import android.os.RemoteException;
 import android.util.Log;
+import at.bitfire.davdroid.resource.Event;
 import at.bitfire.davdroid.resource.LocalCollection;
 import at.bitfire.davdroid.resource.RemoteCollection;
 import at.bitfire.davdroid.resource.Resource;
@@ -66,6 +67,9 @@ public class SyncManager {
 			Log.i(TAG, "Uploading " + newResources.length + " new resource(s) (if not existing)");
 			for (Resource res : newResources) {
 				try {
+					if(res instanceof Event){
+						Log.d(TAG,((Event)res).getSummary());
+					}
 					dav.add(res);
 				} catch(PreconditionFailedException e) {
 					Log.i(TAG, "Didn't overwrite existing resource with other content");

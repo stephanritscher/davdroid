@@ -128,7 +128,8 @@ public class WebDavResource {
 	}
 	
 	public WebDavResource(WebDavResource parent, String member) {
-		location = parent.location.resolve(URIUtils.sanitize(member));
+		if(parent.location!=null)
+			location = parent.location.resolve(URIUtils.sanitize(member));
 		client = parent.client;
 	}
 	

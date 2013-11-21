@@ -355,36 +355,44 @@ public class LocalCalendar extends LocalCollection<Event> {
 	}
 
 	private boolean populateToDo(Event e) throws RemoteException {
-		Cursor cursor = providerClient.query(
+		Cursor cursor = ctx.
+				getContentResolver().
+				query(
 				ContentUris.withAppendedId(tasksURI(account), e.getLocalID()),
 				new String[] {
 				/* 0 */Tasks.TITLE, Tasks.LOCATION, Tasks.DESCRIPTION,
-						Tasks.DUE,Tasks.STATUS,Tasks.PRIORITY,Tasks._ID,Tasks.ACCOUNT_NAME }, null, null, null);
+						Tasks.DUE,Tasks.STATUS,Tasks.PRIORITY,Tasks._ID,Tasks.ACCOUNT_NAME
+						,Tasks._SYNC_ID,Tasks.SYNC1 }, null, null, null);
 		if (cursor != null && cursor.moveToNext()) {
 			e.setUid(cursor.getString(7));
 
 			e.setSummary(cursor.getString(0));
 			e.setLocation(cursor.getString(1));
 			e.setDescription(cursor.getString(2));
-			e.setDue(cursor.getLong(3),null);
+			if(!cursor.isNull(3))
+				e.setDue(cursor.getLong(3),null);
 			// status
 			switch (cursor.getInt(4)) {
-			case Tasks.STATUS_COMPLETED:
+			case 2://Tasks.STATUS_COMPLETED:
 				e.setStatus(Status.VTODO_COMPLETED);
 				break;
-			case Tasks.STATUS_CANCELLED:
+			case 3://Tasks.STATUS_CANCELLED:
 				e.setStatus(Status.VTODO_CANCELLED);
 				break;
-			case Tasks.STATUS_IN_PROCESS:
+			case 1://Tasks.STATUS_IN_PROCESS:
 				e.setStatus(Status.VTODO_IN_PROCESS);
-			case Tasks.STATUS_NEEDS_ACTION:
+				break;
+			default:
+			case 0://Tasks.STATUS_NEEDS_ACTION:
 				e.setStatus(Status.VTODO_NEEDS_ACTION);
+				break;
+				
 			}
-			
 			e.setPriority(new Priority(cursor.getInt(5)));
-
+			cursor.close();
 			return true;
 		} else {
+			cursor.close();
 			return false;
 		}
 	}
@@ -569,6 +577,18 @@ public class LocalCalendar extends LocalCollection<Event> {
 			return true;
 		} else {
 			return false;
+		}
+	}
+	
+	@Override
+	public void clearDirty(Resource resource) {
+		Event e=(Event) resource;
+		if(e.getType()==TYPE.VEVENT)
+			super.clearDirty(resource);
+		else{
+			pendingOperations.add(ContentProviderOperation
+					.newUpdate(ContentUris.withAppendedId(tasksURI(account), resource.getLocalID()))
+					.withValue(Tasks._DIRTY, 0).build());
 		}
 	}
 
