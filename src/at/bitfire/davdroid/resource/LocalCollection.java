@@ -75,6 +75,7 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 		LinkedList<Resource> dirty = new LinkedList<Resource>();
 		while (cursor != null && cursor.moveToNext())
 			dirty.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), true));
+		cursor.close();
 		return dirty.toArray(new Resource[0]);
 	}
 
@@ -88,6 +89,7 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 		LinkedList<Resource> deleted = new LinkedList<Resource>();
 		while (cursor != null && cursor.moveToNext())
 			deleted.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), false));
+		cursor.close();
 		return deleted.toArray(new Resource[0]);
 	}
 
@@ -113,6 +115,7 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 			
 			fresh.add(resource);
 		}
+		cursor.close();
 		return fresh.toArray(new Resource[0]);
 	}
 	

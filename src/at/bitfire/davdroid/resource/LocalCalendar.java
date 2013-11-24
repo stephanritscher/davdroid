@@ -200,6 +200,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 			super.add(resource);
 		}else if(resource.getType()==TYPE.VTODO){
 			int idx = pendingOperations.size();
+			Log.e(TAG,resource.getName());
 			pendingOperations.add(
 					buildEntry(ContentProviderOperation.newInsert(tasksURI(account)), resource)
 					.withYieldAllowed(true)
@@ -219,13 +220,38 @@ public class LocalCalendar extends LocalCollection<Event> {
 				.newUpdate(ContentUris.withAppendedId(calendarsURI(), id))
 				.withValue(COLLECTION_COLUMN_CTAG, cTag).build());
 	}
+	@Override
+	public void delete(Resource resource) {
+		if(resource instanceof Event){
+			Event e=(Event)resource;
+			if(e.getType()==TYPE.VEVENT){
+				super.delete(e);
+			}else if(e.getType()==TYPE.VTODO){
+				pendingOperations.add(ContentProviderOperation
+						.newDelete(ContentUris.withAppendedId(tasksURI(account), resource.getLocalID()))
+						.withYieldAllowed(true)
+						.build());
+			}else{
+				Log.wtf(TAG,"wrong type");
+			}
+		}else{
+			Log.wtf(TAG, "wrong type");
+		}
+		
+	};
 
 	/* content provider (= database) querying */
 
 	@Override
 	public Event findById(long localID, String remoteName, String eTag,
 			boolean populate) throws RemoteException {
-		Event e = new Event(localID, remoteName, eTag, TYPE.UNKNOWN);
+		return findById(localID, remoteName, eTag, populate, TYPE.VEVENT);
+	}
+
+	
+	public Event findById(long localID, String remoteName, String eTag,
+			boolean populate,TYPE t) throws RemoteException {
+		Event e = new Event(localID, remoteName, eTag, t);
 		if (populate)
 			populate(e);
 		return e;
@@ -267,7 +293,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 					Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 }, /*Tasks.LIST_ID
 					+ "=? AND " +*/ Tasks._SYNC_ID + "='?'",
 					new String[] { /*String.valueOf(id),*/ remoteName }, null);
-			Log.w(TAG,"foo");
 			if (cursor != null && cursor.moveToNext())
 				r= new Event(cursor.getLong(0), cursor.getString(1),
 						cursor.getString(2), TYPE.VTODO);
@@ -288,7 +313,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 				new String[] { Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 },
 				where, null, null);
 		while (cursor != null && cursor.moveToNext())
-			deleted.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), false));
+			deleted.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), false,TYPE.VTODO));
+		cursor.close();
 		return deleted.toArray(new Resource[0]);
 	}
 	
@@ -317,6 +343,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 			
 			fresh.add(resource);
 		}
+		cursor.close();
 		return fresh.toArray(new Resource[0]);
 	}
 	
@@ -332,6 +359,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 				where, null, null);
 		while (cursor != null && cursor.moveToNext())
 			dirty.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), true));
+		cursor.close();
 		return dirty.toArray(new Resource[0]);
 	}
 @ Override
@@ -656,6 +684,19 @@ public class LocalCalendar extends LocalCollection<Event> {
 						entryColumnParentID() + "=? AND (" + where + ")",
 						new String[] { String.valueOf(id) });
 		pendingOperations.add(builder.withYieldAllowed(true).build());
+		where="";
+		if (remoteResources.length != 0) {
+			List<String> sqlFileNames = new LinkedList<String>();
+			for (Resource res : remoteResources)
+				sqlFileNames.add(DatabaseUtils.sqlEscapeString(res.getName()));
+			where = Tasks._SYNC_ID + " NOT IN ("
+					+ StringUtils.join(sqlFileNames, ",") + ")";
+		} else
+			where = entryColumnRemoteName() + " IS NOT NULL";
+		builder = ContentProviderOperation.newDelete(tasksURI(account))
+				.withSelection( where ,
+						new String[] { String.valueOf(id) });
+		pendingOperations.add(builder.withYieldAllowed(true).build());
 	}
 
 	/* private helper methods */
@@ -702,17 +743,18 @@ public class LocalCalendar extends LocalCollection<Event> {
 		return builder;
 	}
 
-	private Builder buildVTODO(Builder builder, Event event) {
+	private Builder buildVTODO(Builder builder, Event todo) {
 		builder=builder.withValue(Tasks.LIST_ID, id)
-				.withValue(Tasks.TITLE, event.getSummary())
-				.withValue(Tasks.SYNC1, event.getETag());
+				.withValue(Tasks.TITLE, todo.getSummary())
+				.withValue(Tasks.SYNC1, todo.getETag())
+				.withValue(Tasks._SYNC_ID, todo.getName());
 //				.withValue(Tasks.U, value)//TODO uid??
-		if(event.getDue()!=null)
-				builder=builder.withValue(Tasks.DUE, event.getDueInMillis());
-		if(event.getPriority()!=null)
-			builder=builder.withValue(Tasks.PRIORITY, event.getPriority().getLevel());
-		if(event.getDescription()!=null)
-			builder=builder.withValue(Tasks.DESCRIPTION, event.getDescription());
+		if(todo.getDue()!=null)
+				builder=builder.withValue(Tasks.DUE, todo.getDueInMillis());
+		if(todo.getPriority()!=null)
+			builder=builder.withValue(Tasks.PRIORITY, todo.getPriority().getLevel());
+		if(todo.getDescription()!=null)
+			builder=builder.withValue(Tasks.DESCRIPTION, todo.getDescription());
 				
 		return builder;
 	}

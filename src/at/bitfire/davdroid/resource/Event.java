@@ -117,7 +117,6 @@ public class Event extends Resource {
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public void parseEntity(@NonNull InputStream entity) throws IOException, ParserException {
 		CalendarBuilder builder = new CalendarBuilder();
 		net.fortuna.ical4j.model.Calendar ical = builder.build(entity);
