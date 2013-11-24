@@ -18,14 +18,20 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import lombok.Getter;
+import net.fortuna.ical4j.model.Dur;
 import net.fortuna.ical4j.model.Parameter;
 import net.fortuna.ical4j.model.ParameterList;
 import net.fortuna.ical4j.model.ValidationException;
+import net.fortuna.ical4j.model.PropertyList;
+import net.fortuna.ical4j.model.component.VAlarm;
 import net.fortuna.ical4j.model.parameter.Cn;
 import net.fortuna.ical4j.model.parameter.CuType;
 import net.fortuna.ical4j.model.parameter.PartStat;
 import net.fortuna.ical4j.model.parameter.Role;
+import net.fortuna.ical4j.model.property.Action;
 import net.fortuna.ical4j.model.property.Attendee;
+import net.fortuna.ical4j.model.property.Description;
+import net.fortuna.ical4j.model.property.Duration;
 import net.fortuna.ical4j.model.property.ExDate;
 import net.fortuna.ical4j.model.property.ExRule;
 import net.fortuna.ical4j.model.property.Organizer;
@@ -58,6 +64,7 @@ import android.provider.CalendarContract;
 import android.provider.CalendarContract.Attendees;
 import android.provider.CalendarContract.Calendars;
 import android.provider.CalendarContract.Events;
+import android.provider.CalendarContract.Reminders;
 import android.provider.ContactsContract;
 import android.util.Log;
 import at.bitfire.davdroid.resource.Event.TYPE;
@@ -125,10 +132,10 @@ public class LocalCalendar extends LocalCollection<Event> {
 	@SuppressLint("InlinedApi")
 	public static void create(Account account, ContentResolver resolver,
 			ServerInfo.ResourceInfo info) throws RemoteException {
-		ContentProviderClient calendar = resolver
+		ContentProviderClient client = resolver
 				.acquireContentProviderClient(CalendarContract.AUTHORITY);
-		ContentProviderClient task = resolver
-				.acquireContentProviderClient(TaskContract.AUTHORITY);
+//		ContentProviderClient task = resolver
+//				.acquireContentProviderClient(TaskContract.AUTHORITY);
 
 		int color = 0xFFC3EA6E; // fallback: "DAVdroid green"
 		if (info.getColor() != null) {
@@ -136,8 +143,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 			Matcher m = p.matcher(info.getColor());
 			if (m.find()) {
 				int color_rgb = Integer.parseInt(m.group(1), 16);
-				byte color_alpha = m.group(2) != null ? Byte.parseByte(
-						m.group(2), 16) : -1;
+				int color_alpha = m.group(2) != null ? (Integer.parseInt(m.group(2), 16) & 0xFF) : 0xFF;
 				color = (color_alpha << 24) | color_rgb;
 			}
 		}
@@ -157,11 +163,12 @@ public class LocalCalendar extends LocalCollection<Event> {
 				+ Attendees.TYPE_RESOURCE);
 		values.put(Calendars.OWNER_ACCOUNT, account.name);
 		values.put(Calendars.SYNC_EVENTS, 1);
-		values.put(Calendars.VISIBLE, 1);
-		Log.i(TAG, "Inserting calendar: " + values.toString() + " -> "
-				+ calendarsURI(account).toString());
-		calendar.insert(calendarsURI(account), values);
-//		calendar.insert(tasksURI(account), values);
+		values.put(Calendars.VISIBLE, 1);	
+		if (info.getTimezone() != null)
+			values.put(Calendars.CALENDAR_TIME_ZONE, info.getTimezone());
+		
+		Log.i(TAG, "Inserting calendar: " + values.toString() + " -> " + calendarsURI(account).toString());
+		client.insert(calendarsURI(account), values);
 	}
 
 	public static LocalCalendar[] findAll(Account account,
@@ -223,9 +230,29 @@ public class LocalCalendar extends LocalCollection<Event> {
 			populate(e);
 		return e;
 	}
+	
+	@Override
+	public void updateByRemoteName(Event remoteResource) throws RemoteException ,ValidationException {
+		if(remoteResource.getType()==TYPE.VEVENT){
+			super.updateByRemoteName(remoteResource);
+		}else{
+			Event localResource = findByRemoteName(remoteResource.getName());
+			remoteResource.validate();			
+			pendingOperations.add(
+					buildEntry(ContentProviderOperation.newUpdate(ContentUris.withAppendedId(tasksURI(account), localResource.getLocalID())), remoteResource)
+					.withValue(Tasks.SYNC1, remoteResource.getETag())
+					.withYieldAllowed(true)
+					.build());
+			
+			//TODO add support for this
+			//removeDataRows(localResource);
+			//addDataRows(remoteResource, localResource.getLocalID(), -1);
+		}
+	};
 
 	@Override
 	public Event findByRemoteName(String remoteName) throws RemoteException {
+		Event r= null;
 		Cursor cursor = providerClient
 				.query(entriesURI(), new String[] { entryColumnID(),
 						entryColumnRemoteName(), entryColumnETag() },
@@ -233,20 +260,20 @@ public class LocalCalendar extends LocalCollection<Event> {
 								+ entryColumnRemoteName() + "=?", new String[] {
 								String.valueOf(id), remoteName }, null);
 		if (cursor != null && cursor.moveToNext())
-			return new Event(cursor.getLong(0), cursor.getString(1),
+			r= new Event(cursor.getLong(0), cursor.getString(1),
 					cursor.getString(2), TYPE.VEVENT);
 		else {
 			cursor = ctx.getContentResolver().query(tasksURI(account), new String[] {
 					Tasks._ID, Tasks._SYNC_ID, Tasks.SYNC1 }, /*Tasks.LIST_ID
 					+ "=? AND " +*/ Tasks._SYNC_ID + "='?'",
 					new String[] { /*String.valueOf(id),*/ remoteName }, null);
-
+			Log.w(TAG,"foo");
 			if (cursor != null && cursor.moveToNext())
-				return new Event(cursor.getLong(0), cursor.getString(1),
+				r= new Event(cursor.getLong(0), cursor.getString(1),
 						cursor.getString(2), TYPE.VTODO);
-			else
-				return null;
 		}
+		cursor.close();
+		return r;
 	}
 	
 	@Override
@@ -397,48 +424,46 @@ public class LocalCalendar extends LocalCollection<Event> {
 		}
 	}
 
-	private boolean populateEvent(Event e) throws RemoteException {
-		Cursor cursor = providerClient.query(
-				ContentUris.withAppendedId(entriesURI(), e.getLocalID()),
-				new String[] {
-				/* 0 */Events.TITLE, Events.EVENT_LOCATION, Events.DESCRIPTION,
-				/* 3 */Events.DTSTART, Events.DTEND, Events.EVENT_TIMEZONE,
-						Events.EVENT_END_TIMEZONE, Events.ALL_DAY,
-						/* 8 */Events.STATUS, Events.ACCESS_LEVEL,
-						/* 10 */Events.RRULE, Events.RDATE, Events.EXRULE,
-						Events.EXDATE,
-						/* 14 */Events.HAS_ATTENDEE_DATA, Events.ORGANIZER,
-						Events.SELF_ATTENDEE_STATUS,
-						/* 17 */entryColumnUID() }, null, null, null);
+	private boolean populateEvent(Event e) throws RemoteException {		
+		Cursor cursor = providerClient.query(ContentUris.withAppendedId(entriesURI(), e.getLocalID()),
+			new String[] {
+				/*  0 */ Events.TITLE, Events.EVENT_LOCATION, Events.DESCRIPTION,
+				/*  3 */ Events.DTSTART, Events.DTEND, Events.EVENT_TIMEZONE, Events.EVENT_END_TIMEZONE, Events.ALL_DAY,
+				/*  8 */ Events.STATUS, Events.ACCESS_LEVEL,
+				/* 10 */ Events.RRULE, Events.RDATE, Events.EXRULE, Events.EXDATE,
+				/* 14 */ Events.HAS_ATTENDEE_DATA, Events.ORGANIZER, Events.SELF_ATTENDEE_STATUS,
+				/* 17 */ entryColumnUID(), Events.DURATION
+			}, null, null, null);
 		if (cursor != null && cursor.moveToNext()) {
 			e.setUid(cursor.getString(17));
 
 			e.setSummary(cursor.getString(0));
 			e.setLocation(cursor.getString(1));
-			e.setDescription(cursor.getString(2));
-
-			long tsStart = cursor.getLong(3), tsEnd = cursor.getLong(4);
-			if (cursor.getInt(7) != 0) { // all-day, UTC
-				e.setDtStart(tsStart, null);
-				e.setDtEnd(tsEnd, null);
+			e.setDescription(cursor.getString(2));			
+			long tsStart = cursor.getLong(3),
+				 tsEnd = cursor.getLong(4);
+			
+			String tzId;
+			if (cursor.getInt(7) != 0) {	// ALL_DAY != 0
+				tzId = null;				// -> use UTC
 			} else {
 				// use the start time zone for the end time, too
 				// because the Samsung Planner UI allows the user to change the
 				// time zone
 				// but it will change the start time zone only
-
-				String tzIdStart = cursor.getString(5);
-				// tzIdEnd = cursor.getString(6);
-
-				e.setDtStart(tsStart, tzIdStart);
-				e.setDtEnd(tsEnd, tzIdStart /*
-											 * (tzIdEnd != null) ? tzIdEnd :
-											 * tzIdStart
-											 */);
+				tzId = cursor.getString(5);
+				//tzIdEnd = cursor.getString(6);
 			}
+			e.setDtStart(tsStart, tzId);
+			if (tsEnd != 0)
+				e.setDtEnd(tsEnd, tzId);
 
 			// recurrence
 			try {
+				String duration = cursor.getString(18);
+				if (duration != null)
+					e.setDuration(new Duration(new Dur(duration)));
+				
 				String strRRule = cursor.getString(10);
 				if (strRRule != null)
 					e.setRrule(new RRule(strRRule));
@@ -573,6 +598,28 @@ public class LocalCalendar extends LocalCollection<Event> {
 				break;
 			case Events.ACCESS_PUBLIC:
 				e.setForPublic(true);
+			}
+			
+			// reminders
+			Uri remindersUri = Reminders.CONTENT_URI.buildUpon()
+					.appendQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, "true")
+					.build();
+			Cursor c = providerClient.query(remindersUri, new String[] {
+					/* 0 */ Reminders.MINUTES, Reminders.METHOD
+				}, Reminders.EVENT_ID + "=?", new String[] { String.valueOf(e.getLocalID()) }, null);
+			while (c != null && c.moveToNext()) {
+				VAlarm alarm = new VAlarm(new Dur(0, 0, -c.getInt(0), 0));
+				
+				PropertyList props = alarm.getProperties();
+				switch (c.getInt(1)) {
+				/*case Reminders.METHOD_EMAIL:
+					props.add(Action.EMAIL);
+					break;*/
+				default:
+					props.add(Action.DISPLAY);
+					props.add(new Description(e.getSummary()));
+				}
+				e.addAlarm(alarm);
 			}
 			return true;
 		} else {
@@ -729,10 +776,9 @@ public class LocalCalendar extends LocalCollection<Event> {
 	@Override
 	protected void addDataRows(Event event, long localID, int backrefIdx) {
 		for (Attendee attendee : event.getAttendees())
-			pendingOperations.add(buildAttendee(
-					newDataInsertBuilder(Attendees.CONTENT_URI,
-							Attendees.EVENT_ID, localID, backrefIdx), attendee)
-					.build());
+			pendingOperations.add(buildAttendee(newDataInsertBuilder(Attendees.CONTENT_URI, Attendees.EVENT_ID, localID, backrefIdx), attendee).build());
+		for (VAlarm alarm : event.getAlarms())
+			pendingOperations.add(buildReminder(newDataInsertBuilder(Reminders.CONTENT_URI, Reminders.EVENT_ID, localID, backrefIdx), alarm).build());
 	}
 
 	@Override
@@ -740,8 +786,10 @@ public class LocalCalendar extends LocalCollection<Event> {
 		pendingOperations.add(ContentProviderOperation
 				.newDelete(syncAdapterURI(Attendees.CONTENT_URI))
 				.withSelection(Attendees.EVENT_ID + "=?",
-						new String[] { String.valueOf(event.getLocalID()) })
-				.build());
+				new String[] { String.valueOf(event.getLocalID()) }).build());
+		pendingOperations.add(ContentProviderOperation.newDelete(syncAdapterURI(Reminders.CONTENT_URI))
+				.withSelection(Reminders.EVENT_ID + "=?",
+				new String[] { String.valueOf(event.getLocalID()) }).build());
 	}
 
 	@SuppressLint("InlinedApi")
@@ -789,5 +837,19 @@ public class LocalCalendar extends LocalCollection<Event> {
 		return builder.withValue(Attendees.ATTENDEE_EMAIL, email)
 				.withValue(Attendees.ATTENDEE_TYPE, type)
 				.withValue(Attendees.ATTENDEE_STATUS, status);
+	}
+	
+	protected Builder buildReminder(Builder builder, VAlarm alarm) {
+		int minutes = 0;
+		
+		Dur duration;
+		if (alarm.getTrigger() != null && (duration = alarm.getTrigger().getDuration()) != null)
+			minutes = duration.getDays() * 24*60 + duration.getHours()*60 + duration.getMinutes();
+		
+		Log.i(TAG, "Adding alarm " + minutes + " min before");
+		
+		return builder
+				.withValue(Reminders.METHOD, Reminders.METHOD_ALERT)
+				.withValue(Reminders.MINUTES, minutes);
 	}
 }

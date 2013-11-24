@@ -11,15 +11,17 @@ import org.apache.http.HttpException;
 import android.content.res.AssetManager;
 import android.test.InstrumentationTestCase;
 import at.bitfire.davdroid.webdav.HttpPropfind;
+import at.bitfire.davdroid.webdav.InvalidDavResponseException;
 import at.bitfire.davdroid.webdav.NotFoundException;
 import at.bitfire.davdroid.webdav.PreconditionFailedException;
 import at.bitfire.davdroid.webdav.WebDavResource;
+import at.bitfire.davdroid.webdav.WebDavResource.MultigetType;
 import at.bitfire.davdroid.webdav.WebDavResource.PutMode;
 
 // tests require running robohydra!
 
 public class WebDavResourceTest extends InstrumentationTestCase {
-	static final String ROBOHYDRA_BASE = "http://10.0.0.119:3000/";
+	static final String ROBOHYDRA_BASE = "http://10.0.0.11:3000/";
 	static byte[] SAMPLE_CONTENT = new byte[] { 1, 2, 3, 4, 5 };
 	
 	AssetManager assetMgr;
@@ -80,10 +82,14 @@ public class WebDavResourceTest extends InstrumentationTestCase {
 	}
 
 	public void testPropfindCurrentUserPrincipal() throws IOException, HttpException {
-		assertTrue(davCollection.propfind(HttpPropfind.Mode.CURRENT_USER_PRINCIPAL));
+		davCollection.propfind(HttpPropfind.Mode.CURRENT_USER_PRINCIPAL);
 		assertEquals("/dav/principals/users/test", davCollection.getCurrentUserPrincipal());
 		
-		assertFalse(simpleFile.propfind(HttpPropfind.Mode.CURRENT_USER_PRINCIPAL));
+		try {
+			simpleFile.propfind(HttpPropfind.Mode.CURRENT_USER_PRINCIPAL);
+			fail();
+		} catch(InvalidDavResponseException ex) {
+		}
 		assertNull(simpleFile.getCurrentUserPrincipal());
 	}
 		
@@ -128,10 +134,9 @@ public class WebDavResourceTest extends InstrumentationTestCase {
 		WebDavResource redirection = new WebDavResource(new URI(ROBOHYDRA_BASE + "redirect"), false);
 		try {
 			redirection.get();
+			fail();
 		} catch (HttpException e) {
-			return;
 		}
-		fail();
 	}
 	
 	public void testGet() throws URISyntaxException, IOException, HttpException {
@@ -142,6 +147,15 @@ public class WebDavResourceTest extends InstrumentationTestCase {
 		));
 	}
 	
+	public void testMultiGet() throws InvalidDavResponseException, IOException, HttpException {
+		WebDavResource davAddressBook = new WebDavResource(davCollection, "addressbooks/default.vcf", true);
+		davAddressBook.multiGet(new String[] { "1.vcf", "2.vcf" }, MultigetType.ADDRESS_BOOK);
+		assertEquals(2, davAddressBook.getMembers().size());
+		for (WebDavResource member : davAddressBook.getMembers()) {
+			assertNotNull(member.getContent());
+		}
+	}
+	
 	public void testPutAddDontOverwrite() throws IOException, HttpException {
 		// should succeed on a non-existing file
 		davNonExistingFile.put(SAMPLE_CONTENT, PutMode.ADD_DONT_OVERWRITE);
@@ -149,10 +163,9 @@ public class WebDavResourceTest extends InstrumentationTestCase {
 		// should fail on an existing file
 		try {
 			davExistingFile.put(SAMPLE_CONTENT, PutMode.ADD_DONT_OVERWRITE);
+			fail();
 		} catch(PreconditionFailedException ex) {
-			return;
 		}
-		fail();
 	}
 	
 	public void testPutUpdateDontOverwrite() throws IOException, HttpException {
@@ -162,10 +175,9 @@ public class WebDavResourceTest extends InstrumentationTestCase {
 		// should fail on a non-existing file
 		try {
 			davNonExistingFile.put(SAMPLE_CONTENT, PutMode.UPDATE_DONT_OVERWRITE);
+			fail();
 		} catch(PreconditionFailedException ex) {
-			return;
 		}
-		fail();
 	}
 	
 	public void testDelete() throws IOException, HttpException {
@@ -175,10 +187,9 @@ public class WebDavResourceTest extends InstrumentationTestCase {
 		// should fail on a non-existing file
 		try {
 			davNonExistingFile.delete();
+			fail();
 		} catch (NotFoundException e) {
-			return;
 		}
-		fail();
 	}
 	
 	

@@ -25,6 +25,7 @@ import at.bitfire.davdroid.resource.Event;
 import at.bitfire.davdroid.resource.LocalCollection;
 import at.bitfire.davdroid.resource.RemoteCollection;
 import at.bitfire.davdroid.resource.Resource;
+import at.bitfire.davdroid.webdav.NotFoundException;
 import at.bitfire.davdroid.webdav.PreconditionFailedException;
 
 public class SyncManager {
@@ -52,6 +53,8 @@ public class SyncManager {
 				try {
 					if (res.getName() != null)	// is this resource even present remotely?
 						dav.delete(res);
+				} catch(NotFoundException e) {
+					Log.i(TAG, "Locally-deleted resource has already been removed from server");
 				} catch(PreconditionFailedException e) {
 					Log.i(TAG, "Locally-deleted resource has been changed on the server in the meanwhile");
 				}
