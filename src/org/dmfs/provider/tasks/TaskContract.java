@@ -46,7 +46,8 @@ public final class TaskContract
 	 * Task provider authority.
 	 */
 	//TODO how to do this better?
-	public static final String AUTHORITY = "de.azapps.mirakel.provider";//"org.dmfs.tasks";
+	public static final String AUTHORITY = "de.azapps.mirakel.provider";
+	public static final String AUTHORITY_DMFS = "org.dmfs.tasks";
 
 	/**
 	 * Base content URI.
@@ -753,6 +754,7 @@ public final class TaskContract
 
 		public static final String[] SYNC_ADAPTER_COLUMNS = new String[] { _DIRTY, SYNC1, SYNC2, SYNC3, SYNC4, SYNC5, SYNC6, SYNC7, SYNC8, _SYNC_ID,
 			SYNC_VERSION, };
+
 	}
 
 	/**

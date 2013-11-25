@@ -3,6 +3,7 @@
 
     <string name="app_name">DAVdroid</string>
     <string name="menu_settings">Settings</string>
+    <string name="install_taskprovider">Please install a taskprovider like Mirakel or DMFS to sync TODO\'s</string>
 
     <string-array name="http_protocols">
         <item>http://</item>
