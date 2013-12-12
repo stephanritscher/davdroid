@@ -9,8 +9,8 @@ package at.bitfire.davdroid.resource;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.SocketException;
 import java.io.StringReader;
+import java.net.SocketException;
 import java.util.Calendar;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,11 +30,10 @@ import net.fortuna.ical4j.model.DefaultTimeZoneRegistryFactory;
 import net.fortuna.ical4j.model.Property;
 import net.fortuna.ical4j.model.PropertyList;
 import net.fortuna.ical4j.model.TimeZoneRegistry;
-import net.fortuna.ical4j.model.ValidationException;
 import net.fortuna.ical4j.model.component.VAlarm;
 import net.fortuna.ical4j.model.component.VEvent;
-import net.fortuna.ical4j.model.component.VToDo;
 import net.fortuna.ical4j.model.component.VTimeZone;
+import net.fortuna.ical4j.model.component.VToDo;
 import net.fortuna.ical4j.model.parameter.Value;
 import net.fortuna.ical4j.model.property.Attendee;
 import net.fortuna.ical4j.model.property.Clazz;
@@ -46,6 +45,7 @@ import net.fortuna.ical4j.model.property.Due;
 import net.fortuna.ical4j.model.property.Duration;
 import net.fortuna.ical4j.model.property.ExDate;
 import net.fortuna.ical4j.model.property.ExRule;
+import net.fortuna.ical4j.model.property.LastModified;
 import net.fortuna.ical4j.model.property.Location;
 import net.fortuna.ical4j.model.property.Organizer;
 import net.fortuna.ical4j.model.property.PercentComplete;
@@ -55,12 +55,13 @@ import net.fortuna.ical4j.model.property.RDate;
 import net.fortuna.ical4j.model.property.RRule;
 import net.fortuna.ical4j.model.property.Status;
 import net.fortuna.ical4j.model.property.Summary;
+import net.fortuna.ical4j.model.property.Transp;
 import net.fortuna.ical4j.model.property.Uid;
 import net.fortuna.ical4j.model.property.Version;
-import net.fortuna.ical4j.util.UidGenerator;
 import android.text.format.Time;
 import android.util.Log;
 import at.bitfire.davdroid.Constants;
+import at.bitfire.davdroid.syncadapter.DavSyncAdapter;
 
 public class Event extends Resource {
 	public enum TYPE{
@@ -84,6 +85,8 @@ public class Event extends Resource {
 	@Getter	@Setter	private Status status;
 
 	@Getter	@Setter	private TYPE type;
+	@Getter @Setter private boolean opaque;	
+
 
 	@Getter @Setter private Organizer organizer;
 	@Getter private List<Attendee> attendees = new LinkedList<Attendee>();
@@ -105,15 +108,21 @@ public class Event extends Resource {
 
 	public Event(String name, String ETag, TYPE type) {
 		super(name, ETag);
-		
 		DefaultTimeZoneRegistryFactory factory = new DefaultTimeZoneRegistryFactory();
 		tzRegistry = factory.createRegistry();
 		this.type=type;
 	}
 
 	public Event(long localID, String name, String ETag, TYPE type) {
-		this(name, ETag,type);
-		this.localID = localID;
+		super(localID, name, ETag);
+		this.type = type;
+	}
+	
+	
+	@Override
+	public void initialize() {
+		uid = DavSyncAdapter.generateUID();
+		name = uid.replace("@", "_") + ".ics";
 	}
 
 	@Override
@@ -153,10 +162,8 @@ public class Event extends Resource {
 		if (todo.getUid() != null)
 			uid = todo.getUid().toString();
 		else {
-			Log.w(TAG, "Received VEVENT without UID, generating new one");
-			UidGenerator uidGenerator = new UidGenerator(
-					Integer.toString(android.os.Process.myPid()));
-			uid = uidGenerator.generateUid().getValue();
+			Log.w(TAG, "Received VTODO without UID, generating new one");
+			uid = DavSyncAdapter.generateUID();
 		}
 
 		dtStart = todo.getStartDate();
@@ -205,9 +212,7 @@ public class Event extends Resource {
 			uid = event.getUid().getValue();
 		else {
 			Log.w(TAG, "Received VEVENT without UID, generating new one");
-			UidGenerator uidGenerator = new UidGenerator(
-					Integer.toString(android.os.Process.myPid()));
-			uid = uidGenerator.generateUid().getValue();
+			uid = DavSyncAdapter.generateUID();
 		}
 		
 		dtStart = event.getStartDate();	validateTimeZone(dtStart);
@@ -227,7 +232,10 @@ public class Event extends Resource {
 			description = event.getDescription().getValue();
 
 		status = event.getStatus();
-
+		opaque = true;
+		if (event.getTransparency() == Transp.TRANSPARENT)
+			opaque = false;
+		
 		organizer = event.getOrganizer();
 		for (Object o : event.getProperties(Property.ATTENDEE))
 			attendees.add((Attendee) o);
@@ -313,7 +321,8 @@ public class Event extends Resource {
 
 		if (status != null)
 			props.add(status);
-
+		if (!opaque)
+			props.add(Transp.TRANSPARENT);
 		if (organizer != null)
 			props.add(organizer);
 		props.addAll(attendees);
@@ -334,6 +343,7 @@ public class Event extends Resource {
 		
 		event.getAlarms().addAll(alarms);
 		
+		props.add(new LastModified());
 		ical.getComponents().add(event);
 
 		// add VTIMEZONE components
@@ -347,10 +357,9 @@ public class Event extends Resource {
 	}
 
 	public long getDtStartInMillis() {
-	
-		return dtStart==null?0:dtStart.getDate().getTime();
+		return (dtStart != null && dtStart.getDate() != null) ? dtStart.getDate().getTime() : 0;
 	}
-
+	
 	public String getDtStartTzID() {
 		return getTzId(dtStart);
 	}
@@ -375,14 +384,18 @@ public class Event extends Resource {
 		}
 	}
 
-	public long getDtEndInMillis() {
-		if (hasNoTime(dtStart) && dtEnd == null) {
+
+	public Long getDtEndInMillis() {
+		if (hasNoTime(dtStart) && dtEnd == null) {		// "event on that day"
 			// dtEnd = dtStart + 1 day
 			Calendar c = Calendar.getInstance(TimeZone
 					.getTimeZone(Time.TIMEZONE_UTC));
 			c.setTime(dtStart.getDate());
 			c.add(Calendar.DATE, 1);
 			return c.getTimeInMillis();
+			
+		} else if (dtEnd == null || dtEnd.getDate() == null) {	// no DTEND provided (maybe DURATION instead)
+			return null;
 		}
 
 		return dtEnd.getDate().getTime();
@@ -418,8 +431,8 @@ public class Event extends Resource {
 	}
 
 	protected boolean hasNoTime(DateProperty date) {
-		if(date==null)
-			return true;
+		if (date == null)
+			return false;
 		return !(date.getDate() instanceof DateTime);
 	}
 
@@ -454,17 +467,17 @@ public class Event extends Resource {
 				break;
 			}
 
-		Log.i(TAG, "Assuming time zone " + localTZ + " for " + tzID);
+		Log.d(TAG, "Assuming time zone " + localTZ + " for " + tzID);
 		date.setTimeZone(tzRegistry.getTimeZone(localTZ));
 	}
 
-	@Override
-	public void validate() throws ValidationException {
-		super.validate();
-
-		if (dtStart == null&&type==TYPE.VEVENT)
-			throw new ValidationException("dtStart must not be empty");
-	}
+	// @Override
+	// public void validate() throws ValidationException {
+	// super.validate();
+	//
+	// if (dtStart == null&&type==TYPE.VEVENT)
+	// throw new ValidationException("dtStart must not be empty");
+	// }
 
 
 	public long getDueInMillis() {
@@ -479,6 +492,7 @@ public class Event extends Resource {
 
 		return due.getDate().getTime();
 	}
+
 
 
 	public static String TimezoneDefToTzId(String timezoneDef) {

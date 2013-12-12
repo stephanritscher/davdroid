@@ -9,10 +9,6 @@ package at.bitfire.davdroid.resource;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.StringWriter;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
@@ -20,249 +16,251 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import net.fortuna.ical4j.data.ParserException;
-import net.fortuna.ical4j.model.Date;
-import net.fortuna.ical4j.model.ValidationException;
-import net.fortuna.ical4j.vcard.GroupRegistry;
-import net.fortuna.ical4j.vcard.ParameterFactoryRegistry;
-import net.fortuna.ical4j.vcard.Property;
-import net.fortuna.ical4j.vcard.Property.Id;
-import net.fortuna.ical4j.vcard.PropertyFactoryRegistry;
-import net.fortuna.ical4j.vcard.VCard;
-import net.fortuna.ical4j.vcard.VCardBuilder;
-import net.fortuna.ical4j.vcard.VCardOutputter;
-import net.fortuna.ical4j.vcard.parameter.Type;
-import net.fortuna.ical4j.vcard.property.Address;
-import net.fortuna.ical4j.vcard.property.BDay;
-import net.fortuna.ical4j.vcard.property.Email;
-import net.fortuna.ical4j.vcard.property.Fn;
-import net.fortuna.ical4j.vcard.property.N;
-import net.fortuna.ical4j.vcard.property.Nickname;
-import net.fortuna.ical4j.vcard.property.Note;
-import net.fortuna.ical4j.vcard.property.Photo;
-import net.fortuna.ical4j.vcard.property.Telephone;
-import net.fortuna.ical4j.vcard.property.Uid;
-import net.fortuna.ical4j.vcard.property.Url;
-import net.fortuna.ical4j.vcard.property.Version;
 
 import org.apache.commons.lang.StringUtils;
 
 import android.util.Log;
-import at.bitfire.davdroid.ical4j.PhoneticFirstName;
-import at.bitfire.davdroid.ical4j.PhoneticLastName;
-import at.bitfire.davdroid.ical4j.PhoneticMiddleName;
-import at.bitfire.davdroid.ical4j.Starred;
+import at.bitfire.davdroid.Constants;
+import ezvcard.Ezvcard;
+import ezvcard.VCard;
+import ezvcard.VCardException;
+import ezvcard.VCardVersion;
+import ezvcard.parameter.EmailType;
+import ezvcard.parameter.ImageType;
+import ezvcard.parameter.TelephoneType;
+import ezvcard.property.Address;
+import ezvcard.property.Anniversary;
+import ezvcard.property.Birthday;
+import ezvcard.property.Email;
+import ezvcard.property.FormattedName;
+import ezvcard.property.Impp;
+import ezvcard.property.Nickname;
+import ezvcard.property.Note;
+import ezvcard.property.Organization;
+import ezvcard.property.Photo;
+import ezvcard.property.RawProperty;
+import ezvcard.property.Revision;
+import ezvcard.property.Role;
+import ezvcard.property.StructuredName;
+import ezvcard.property.Telephone;
+import ezvcard.property.Uid;
+import ezvcard.property.Url;
 
 @ToString(callSuper = true)
 public class Contact extends Resource {
 	private final static String TAG = "davdroid.Contact";
 	
+	public final static String
+		PROPERTY_STARRED = "X-DAVDROID-STARRED",
+		PROPERTY_PHONETIC_FIRST_NAME = "X-PHONETIC-FIRST-NAME",
+		PROPERTY_PHONETIC_MIDDLE_NAME = "X-PHONETIC-MIDDLE-NAME",
+		PROPERTY_PHONETIC_LAST_NAME = "X-PHONETIC-LAST-NAME";
+		
+	public final static EmailType EMAIL_TYPE_MOBILE = EmailType.get("X-MOBILE");
+				
+	public final static TelephoneType
+		PHONE_TYPE_CALLBACK = TelephoneType.get("X-CALLBACK"),
+		PHONE_TYPE_COMPANY_MAIN = TelephoneType.get("X-COMPANY_MAIN"),
+		PHONE_TYPE_RADIO = TelephoneType.get("X-RADIO"),
+		PHONE_TYPE_ASSISTANT = TelephoneType.get("X-ASSISTANT"),
+		PHONE_TYPE_MMS = TelephoneType.get("X-MMS");
+	
 	@Getter @Setter boolean starred;
 	
-	@Getter @Setter private String displayName;
+	@Getter @Setter private String displayName, nickName;
 	@Getter @Setter private String prefix, givenName, middleName, familyName, suffix;
 	@Getter @Setter private String phoneticGivenName, phoneticMiddleName, phoneticFamilyName;
-	@Getter @Setter private String[] nickNames;
+	@Getter @Setter private String note;
+	@Getter @Setter private String organization, role;
 	
 	@Getter @Setter private byte[] photo;
 	
-	@Getter @Setter private Date birthDay;
+	@Getter @Setter private Anniversary anniversary;
+	@Getter @Setter private Birthday birthDay;
 
+	@Getter private List<Telephone> phoneNumbers = new LinkedList<Telephone>();
+	@Getter private List<Email> emails = new LinkedList<Email>();
+	@Getter private List<Impp> impps = new LinkedList<Impp>();
+	@Getter private List<Address> addresses = new LinkedList<Address>();
+	@Getter private List<String> URLs = new LinkedList<String>();
+
+
+	/* instance methods */
 	
 	public Contact(String name, String ETag) {
 		super(name, ETag);
 	}
 	
 	public Contact(long localID, String resourceName, String eTag) {
-		super(resourceName, eTag);
-		this.localID = localID;
+		super(localID, resourceName, eTag);
 	}
 
-	
-	/* multiple-record fields */
-	
-	@Getter private List<Email> emails = new LinkedList<Email>();
-	public void addEmail(Email email) {
-		emails.add(email);
+	@Override
+	public void initialize() {
+		uid = UUID.randomUUID().toString();
+		name = uid + ".vcf";
 	}
-	
-	@Getter private List<Telephone> phoneNumbers = new LinkedList<Telephone>();
-	public void addPhoneNumber(Telephone number) {
-		phoneNumbers.add(number);
-	}
-	
-	@Getter private List<Address> addresses = new LinkedList<Address>();
-	public void addAddress(Address address) {
-		addresses.add(address);
-	}
-	
-	@Getter private List<URI> URLs = new LinkedList<URI>();
-	public void addURL(URI url) {
-		URLs.add(url);
-	}
-	
-	@Getter private List<String> notes = new LinkedList<String>();
-	public void addNote(String note) {
-		notes.add(note);
-	}
-	
 
 	
 	/* VCard methods */
 
 	@Override
-	public void parseEntity(InputStream is) throws IOException, ParserException {
-		PropertyFactoryRegistry propertyFactoryRegistry = new PropertyFactoryRegistry();
-
-		// add support for X-DAVDROID-STARRED
-		propertyFactoryRegistry.register("X-" + Starred.PROPERTY_NAME, new Starred.Factory());
+	public void parseEntity(InputStream is) throws IOException, VCardException {
+		VCard vcard = Ezvcard.parse(is).first();
+		if (vcard == null)
+			return;
 		
-		// add support for phonetic names
-		propertyFactoryRegistry.register("X-" + PhoneticFirstName.PROPERTY_NAME, new PhoneticFirstName.Factory());
-		propertyFactoryRegistry.register("X-" + PhoneticMiddleName.PROPERTY_NAME, new PhoneticMiddleName.Factory());
-		propertyFactoryRegistry.register("X-" + PhoneticLastName.PROPERTY_NAME, new PhoneticLastName.Factory());
-		
-		VCardBuilder builder = new VCardBuilder(
-				new InputStreamReader(is),
-				new GroupRegistry(),
-				propertyFactoryRegistry,
-				new ParameterFactoryRegistry()
-		);
-		
-		VCard vcard;
-		try {
-			vcard = builder.build();
-			if (vcard == null)
-				return;
-		} catch(Exception ex) {
-			Log.e(TAG, "VCard parser exception", ex);
-			throw new ParserException("VCard parser crashed", -1, ex);
-		}
-		
-		Uid uid = (Uid)vcard.getProperty(Id.UID);
-		if (uid != null)
-			this.uid = uid.getValue();
-		else {
+		Uid uid = vcard.getUid();
+		if (uid == null) {
 			Log.w(TAG, "Received VCONTACT without UID, generating new one");
-			this.uid = UUID.randomUUID().toString();
+			uid = new Uid(UUID.randomUUID().toString());
 		}
+		this.uid = uid.getValue();
 
-		Starred starred = (Starred)vcard.getExtendedProperty(Starred.PROPERTY_NAME);
+		RawProperty starred = vcard.getExtendedProperty(PROPERTY_STARRED);
 		this.starred = starred != null && starred.getValue().equals("1");
 		
-		Fn fn = (Fn)vcard.getProperty(Id.FN);
-		displayName = (fn != null) ? fn.getValue() : null;
+		FormattedName fn = vcard.getFormattedName();
+		if (fn != null)
+			displayName = fn.getValue();
 
-		Nickname nickname = (Nickname)vcard.getProperty(Id.NICKNAME);
-		if (nickname != null)
-			nickNames = nickname.getNames();
-		
-		N n = (N)vcard.getProperty(Id.N);
+		StructuredName n = vcard.getStructuredName();
 		if (n != null) {
 			prefix = StringUtils.join(n.getPrefixes(), " ");
-			givenName = n.getGivenName();
-			middleName = StringUtils.join(n.getAdditionalNames(), " ");
-			familyName = n.getFamilyName();
+			givenName = n.getGiven();
+			middleName = StringUtils.join(n.getAdditional(), " ");
+			familyName = n.getFamily();
 			suffix = StringUtils.join(n.getSuffixes(), " ");
 		}
 		
-		PhoneticFirstName phoneticFirstName = (PhoneticFirstName)vcard.getExtendedProperty(PhoneticFirstName.PROPERTY_NAME);
+		RawProperty
+			phoneticFirstName = vcard.getExtendedProperty(PROPERTY_PHONETIC_FIRST_NAME),
+			phoneticMiddleName = vcard.getExtendedProperty(PROPERTY_PHONETIC_MIDDLE_NAME),
+			phoneticLastName = vcard.getExtendedProperty(PROPERTY_PHONETIC_LAST_NAME);
 		if (phoneticFirstName != null)
 			phoneticGivenName = phoneticFirstName.getValue();
-		PhoneticMiddleName phoneticMiddleName = (PhoneticMiddleName)vcard.getExtendedProperty(PhoneticMiddleName.PROPERTY_NAME);
 		if (phoneticMiddleName != null)
 			this.phoneticMiddleName = phoneticMiddleName.getValue();
-		PhoneticLastName phoneticLastName = (PhoneticLastName)vcard.getExtendedProperty(PhoneticLastName.PROPERTY_NAME);
 		if (phoneticLastName != null)
 			phoneticFamilyName = phoneticLastName.getValue();
 		
-		for (Property p : vcard.getProperties(Id.EMAIL))
-			emails.add((Email)p);
+		phoneNumbers = vcard.getTelephoneNumbers();
+		emails = vcard.getEmails();
 		
-		for (Property p : vcard.getProperties(Id.TEL))
-			phoneNumbers.add((Telephone)p);
-		
-		for (Property p : vcard.getProperties(Id.ADR))
-			addresses.add((Address)p);
-		
-		Photo photo = (Photo)vcard.getProperty(Id.PHOTO);
-		if (photo != null)
-			this.photo = photo.getBinary();
-		
-		for (Property p : vcard.getProperties(Id.BDAY))
-			birthDay = ((BDay)p).getDate();
-		
-		for (Property p : vcard.getProperties(Id.URL))
-			URLs.add(((Url)p).getUri());
-		
-		for (Property p : vcard.getProperties(Id.NOTE))
-			notes.add(((Note)p).getValue());
-	}
-
-	
-	@Override
-	public String toEntity() throws IOException, ValidationException {
-		VCard vcard = new VCard();
-		List<Property> properties = vcard.getProperties();
-		
-		properties.add(Version.VERSION_4_0);
-		
-		try {
-			if (uid != null)
-				properties.add(new Uid(new URI(uid)));
-		} catch (URISyntaxException e) {
-			Log.e(TAG, "Couldn't write UID to VCard");
+		for (Photo photo : vcard.getPhotos()) {
+			this.photo = photo.getData();
+			break;
 		}
 		
+		if (vcard.getOrganization() != null) {
+			List<String> organizations = vcard.getOrganization().getValues();
+			if (!organizations.isEmpty())
+				organization = organizations.get(0);
+		}
+		for (Role role : vcard.getRoles())
+			this.role = role.getValue();
+		
+		impps = vcard.getImpps();
+		
+		Nickname nicknames = vcard.getNickname();
+		if (nicknames != null && nicknames.getValues() != null)
+			nickName = StringUtils.join(nicknames.getValues(), ", ");
+		
+		List<String> notes = new LinkedList<String>();
+		for (Note note : vcard.getNotes())
+			notes.add(note.getValue());
+		if (!notes.isEmpty())
+			note = StringUtils.join(notes, "\n---\n");
+
+		addresses = vcard.getAddresses();
+		
+		for (Url url : vcard.getUrls())
+			URLs.add(url.getValue());
+
+		birthDay = vcard.getBirthday();
+		anniversary = vcard.getAnniversary();
+	}
+
+	
+	@Override
+	public String toEntity() throws IOException {
+		VCard vcard = new VCard();
+		vcard.setProdId("DAVdroid/" + Constants.APP_VERSION + " (ez-vcard/" + Ezvcard.VERSION + ")");
+		
+		if (uid != null)
+			vcard.setUid(new Uid(uid));
+		
 		if (starred)
-			properties.add(new Starred("1"));
+			vcard.setExtendedProperty(PROPERTY_STARRED, "1");
 		
 		if (displayName != null)
-			properties.add(new Fn(displayName));
-		
-		if (nickNames != null)
-			properties.add(new Nickname(nickNames));
+			vcard.setFormattedName(displayName);
 
-		if (photo != null)
-			properties.add(new Photo(photo, new Type("image/jpeg")));
-		
-		if (birthDay != null)
-			properties.add(new BDay(birthDay));
-		
-		if (familyName != null || middleName != null || givenName != null)
-			properties.add(new N(familyName, givenName, StringUtils.split(middleName),
-					StringUtils.split(prefix), StringUtils.split(suffix)));
+		if (familyName != null || middleName != null || givenName != null) {
+			StructuredName n = new StructuredName();
+			if (prefix != null)
+				for (String p : StringUtils.split(prefix))
+					n.addPrefix(p);
+			n.setGiven(givenName);
+			if (middleName != null)
+				for (String middle : StringUtils.split(middleName))
+					n.addAdditional(middle);
+			n.setFamily(familyName);
+			if (suffix != null)
+				for (String s : StringUtils.split(suffix))
+					n.addSuffix(s);
+			vcard.setStructuredName(n);
+		}
 		
 		if (phoneticGivenName != null)
-			properties.add(new PhoneticFirstName(phoneticGivenName));
+			vcard.addExtendedProperty(PROPERTY_PHONETIC_FIRST_NAME, phoneticGivenName);
 		if (phoneticMiddleName != null)
-			properties.add(new PhoneticMiddleName(phoneticMiddleName));
+			vcard.addExtendedProperty(PROPERTY_PHONETIC_MIDDLE_NAME, phoneticMiddleName);
 		if (phoneticFamilyName != null)
-			properties.add(new PhoneticLastName(phoneticFamilyName));
+			vcard.addExtendedProperty(PROPERTY_PHONETIC_LAST_NAME, phoneticFamilyName);
+		
+		for (Telephone phoneNumber : phoneNumbers)
+			vcard.addTelephoneNumber(phoneNumber);
+		
+		for (Email email : emails)
+			vcard.addEmail(email);
 
-		if (!emails.isEmpty())
-			properties.addAll(emails);
+		if (photo != null)
+			vcard.addPhoto(new Photo(photo, ImageType.JPEG));
+		
+		if (organization != null) {
+			Organization org = new Organization();
+			org.addValue(organization);
+			vcard.addOrganization(org);
+		}
+		if (role != null)
+			vcard.addRole(role);
+		
+		for (Impp impp : impps)
+			vcard.addImpp(impp);
 
-		if (!addresses.isEmpty())
-			properties.addAll(addresses);
+		if (nickName != null && !nickName.isEmpty())
+			vcard.setNickname(nickName);
 		
-		if (!phoneNumbers.isEmpty())
-			properties.addAll(phoneNumbers);
+		if (note != null && !note.isEmpty())
+			vcard.addNote(note);
 		
-		for (URI uri : URLs)
-			properties.add(new Url(uri));
+		for (Address address : addresses)
+			vcard.addAddress(address);
 		
-		for (String note : notes)
-			properties.add(new Note(note));
+		for (String url : URLs)
+			vcard.addUrl(url);
 		
-		StringWriter writer = new StringWriter();
-		new VCardOutputter(true).output(vcard, writer);
-		return writer.toString();
-	}
-	
+		if (anniversary != null)
+			vcard.setAnniversary(anniversary);
+		if (birthDay != null)
+			vcard.setBirthday(birthDay);
 
-	@Override
-	public void validate() throws ValidationException {
-		super.validate();
+		vcard.setRevision(Revision.now());
+		return Ezvcard
+			.write(vcard)
+			.version(VCardVersion.V3_0)
+			.prodId(false)		// we provide or own PRODID
+			.go();
 	}
 }

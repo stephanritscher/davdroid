@@ -10,11 +10,12 @@ package at.bitfire.davdroid.resource;
 import java.io.IOException;
 import java.io.InputStream;
 
-import net.fortuna.ical4j.data.ParserException;
-import net.fortuna.ical4j.model.ValidationException;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import net.fortuna.ical4j.data.ParserException;
+import net.fortuna.ical4j.model.ValidationException;
+import ezvcard.VCardException;
 
 @ToString
 public abstract class Resource {
@@ -35,11 +36,9 @@ public abstract class Resource {
 		this.localID = localID;
 	}
 	
+	// sets resource name and UID
+	public abstract void initialize();
 	
-	public abstract void parseEntity(InputStream entity) throws IOException, ParserException;
+	public abstract void parseEntity(InputStream entity) throws IOException, ParserException, VCardException;
 	public abstract String toEntity() throws IOException, ValidationException;
-	
-	public void validate() throws ValidationException {
-		if (name == null) throw new ValidationException("File name must be set");
-	}
 }
