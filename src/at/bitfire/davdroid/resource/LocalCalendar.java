@@ -21,8 +21,8 @@ import lombok.Getter;
 import net.fortuna.ical4j.model.Dur;
 import net.fortuna.ical4j.model.Parameter;
 import net.fortuna.ical4j.model.ParameterList;
-import net.fortuna.ical4j.model.ValidationException;
 import net.fortuna.ical4j.model.PropertyList;
+import net.fortuna.ical4j.model.ValidationException;
 import net.fortuna.ical4j.model.component.VAlarm;
 import net.fortuna.ical4j.model.parameter.Cn;
 import net.fortuna.ical4j.model.parameter.CuType;
@@ -39,7 +39,6 @@ import net.fortuna.ical4j.model.property.Priority;
 import net.fortuna.ical4j.model.property.RDate;
 import net.fortuna.ical4j.model.property.RRule;
 import net.fortuna.ical4j.model.property.Status;
-import net.fortuna.ical4j.vcard.property.Uid;
 
 import org.apache.commons.lang.StringUtils;
 import org.dmfs.provider.tasks.TaskContract;
@@ -62,7 +61,6 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Looper;
 import android.os.RemoteException;
 import android.provider.CalendarContract;
 import android.provider.CalendarContract.Attendees;
@@ -71,8 +69,6 @@ import android.provider.CalendarContract.Events;
 import android.provider.CalendarContract.Reminders;
 import android.provider.ContactsContract;
 import android.util.Log;
-import android.widget.Toast;
-import at.bitfire.davdroid.R;
 import at.bitfire.davdroid.resource.Event.TYPE;
 import at.bitfire.davdroid.syncadapter.ServerInfo;
 
@@ -746,7 +742,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 			where = entryColumnRemoteName() + " IS NOT NULL";
 		for (Uri uri : tasksURI(account)) {
 			builder = ContentProviderOperation.newDelete(uri).withSelection(
-					where, new String[] { String.valueOf(id) });
+					Tasks.LIST_ID + "=? AND (" + where + ")",
+					new String[] { String.valueOf(id) });
 		}
 		pendingOperations.add(builder.withYieldAllowed(true).build());
 	}
