@@ -9,7 +9,6 @@ package at.bitfire.davdroid.resource;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.UUID;
 
 import net.fortuna.ical4j.model.ValidationException;
 import android.accounts.Account;
@@ -24,7 +23,7 @@ import android.os.RemoteException;
 import android.provider.CalendarContract;
 import android.util.Log;
 
-public abstract class LocalCollection<ResourceType extends Resource> {
+public abstract class LocalCollection<T extends Resource> {
 	private static final String TAG = "davdroid.LocalCollection";
 	
 	protected Account account;
@@ -72,10 +71,10 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 		Cursor cursor = providerClient.query(entriesURI(),
 				new String[] { entryColumnID(), entryColumnRemoteName(), entryColumnETag() },
 				where, null, null);
-		LinkedList<Resource> dirty = new LinkedList<Resource>();
+		LinkedList<T> dirty = new LinkedList<T>();
 		while (cursor != null && cursor.moveToNext())
-			dirty.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), true));
-		cursor.close();
+			dirty.add(findById(cursor.getLong(0), true));
+		if (cursor != null) cursor.close();
 		return dirty.toArray(new Resource[0]);
 	}
 
@@ -86,10 +85,11 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 		Cursor cursor = providerClient.query(entriesURI(),
 				new String[] { entryColumnID(), entryColumnRemoteName(), entryColumnETag() },
 				where, null, null);
-		LinkedList<Resource> deleted = new LinkedList<Resource>();
+		LinkedList<T> deleted = new LinkedList<T>();
 		while (cursor != null && cursor.moveToNext())
-			deleted.add(findById(cursor.getLong(0), cursor.getString(1), cursor.getString(2), false));
-		cursor.close();
+			deleted.add(findById(cursor.getLong(0), false));
+		if (cursor != null) cursor.close();
+
 		return deleted.toArray(new Resource[0]);
 	}
 
@@ -100,17 +100,16 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 		Cursor cursor = providerClient.query(entriesURI(),
 				new String[] { entryColumnID() },
 				where, null, null);
-		LinkedList<Resource> fresh = new LinkedList<Resource>();
+		LinkedList<T> fresh = new LinkedList<T>();
 		while (cursor != null && cursor.moveToNext()) {
-			String uid = UUID.randomUUID().toString(),
-				   resourceName = uid + fileExtension();
-			Resource resource = findById(cursor.getLong(0), resourceName, null, true); //new Event(cursor.getLong(0), resourceName, null);
-			resource.setUid(uid);
+			T resource = findById(cursor.getLong(0), true);
+			resource.initialize();
 
-			// new record: set generated resource name in database
+			// new record: set generated UID + remote file name in database
 			pendingOperations.add(ContentProviderOperation
 					.newUpdate(ContentUris.withAppendedId(entriesURI(), resource.getLocalID()))
-					.withValue(entryColumnRemoteName(), resourceName)
+					.withValue(entryColumnUID(), resource.getUid())
+					.withValue(entryColumnRemoteName(), resource.getName())
 					.build());
 			
 			fresh.add(resource);
@@ -119,17 +118,45 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 		return fresh.toArray(new Resource[0]);
 	}
 	
-	abstract public Resource findById(long localID, String resourceName, String eTag, boolean populate) throws RemoteException;
-	abstract public ResourceType findByRemoteName(String name) throws RemoteException;
+	public T findById(long localID, boolean populate) throws RemoteException {
+		Cursor cursor = providerClient.query(ContentUris.withAppendedId(entriesURI(), localID),
+				new String[] { entryColumnRemoteName(), entryColumnETag() }, null, null, null);
+		if (cursor != null && cursor.moveToNext()) {
+			T resource = newResource(localID, cursor.getString(0), cursor.getString(1));
+			if (populate)
+				populate(resource);
+			return resource;
+		} else
+			return null;
+	}
+	
+	public T findByRemoteName(String remoteName, boolean populate) throws RemoteException {
+		Cursor cursor = providerClient.query(entriesURI(),
+				new String[] { entryColumnID(), entryColumnRemoteName(), entryColumnETag() },
+				entryColumnRemoteName() + "=?", new String[] { remoteName }, null);
+		if (cursor != null && cursor.moveToNext()) {
+			T resource = newResource(cursor.getLong(0), cursor.getString(1), cursor.getString(2));
+			if (populate)
+				populate(resource);
+			return resource;
+		} else
+			return null;
+	}
+
 
 	public abstract void populate(Resource record) throws RemoteException;
+	
+	protected void queueOperation(Builder builder) {
+		if (builder != null)
+			pendingOperations.add(builder.build());
+	}
 
 	
 	// create/update/delete
 	
-	public void add(ResourceType resource) throws ValidationException {
-		resource.validate();
-		
+	abstract public T newResource(long localID, String resourceName, String eTag);
+	
+	public void add(Resource resource) {
 		int idx = pendingOperations.size();
 		pendingOperations.add(
 				buildEntry(ContentProviderOperation.newInsert(entriesURI()), resource)
@@ -139,9 +166,8 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 		addDataRows(resource, -1, idx);
 	}
 	
-	public void updateByRemoteName(ResourceType remoteResource) throws RemoteException, ValidationException {
-		ResourceType localResource = findByRemoteName(remoteResource.getName());
-		remoteResource.validate();
+	public void updateByRemoteName(Resource remoteResource) throws RemoteException, ValidationException {
+		T localResource = findByRemoteName(remoteResource.getName(), false);
 		
 		pendingOperations.add(
 				buildEntry(ContentProviderOperation.newUpdate(ContentUris.withAppendedId(entriesURI(), localResource.getLocalID())), remoteResource)
@@ -179,8 +205,6 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 	
 	// helpers
 	
-	protected abstract String fileExtension();
-	
 	protected Uri syncAdapterURI(Uri baseURI) {
 		return baseURI.buildUpon()
 				.appendQueryParameter(entryColumnAccountType(), account.type)
@@ -200,9 +224,9 @@ public abstract class LocalCollection<ResourceType extends Resource> {
 	
 	// content builders
 
-	protected abstract Builder buildEntry(Builder builder, ResourceType resource);
+	protected abstract Builder buildEntry(Builder builder, Resource resource);
 	
-	protected abstract void addDataRows(ResourceType resource, long localID, int backrefIdx);
-	protected abstract void removeDataRows(ResourceType resource);
+	protected abstract void addDataRows(Resource resource, long localID, int backrefIdx);
+	protected abstract void removeDataRows(Resource resource);
 
 }
