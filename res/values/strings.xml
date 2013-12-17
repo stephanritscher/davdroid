@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">DAVdroid</string>
+    <string name="app_name"  translatable="false">DAVdroid</string>
     <string name="menu_settings">Settings</string>
 
-    <string-array name="http_protocols">
+    <string-array name="http_protocols"  translatable="false">
         <item>http://</item>
         <item>https://</item>
     </string-array>
