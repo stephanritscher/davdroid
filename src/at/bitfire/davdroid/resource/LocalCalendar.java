@@ -452,7 +452,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 	@Override
 	public void populate(Resource resource) throws RemoteException {
 		Event e = (Event) resource;
-		if (e.isPopulated())
+		if (e == null || e.isPopulated())
 			return;
 		boolean success = false;
 		if (e.getType() != TYPE.VTODO) {
