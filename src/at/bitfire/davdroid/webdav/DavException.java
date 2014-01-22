@@ -10,20 +10,19 @@
  ******************************************************************************/
 package at.bitfire.davdroid.webdav;
 
-import org.simpleframework.xml.Namespace;
-import org.simpleframework.xml.Root;
-import org.simpleframework.xml.Text;
+import org.apache.http.HttpException;
 
-@Root(name="href")
-@Namespace(prefix="D",reference="DAV:")
-public class DavHref {
-	@Text
-	String href;
+public class DavException extends HttpException {
+	private static final long serialVersionUID = -2118919144443165706L;
 	
-	DavHref() {
+	final private static String prefix = "Invalid DAV response: ";
+	
+	
+	public DavException(String message) {
+		super(prefix + message);
 	}
 	
-	public DavHref(String href) {
-		this.href = href;
+	public DavException(String message, Throwable ex) {
+		super(prefix + message, ex);
 	}
 }

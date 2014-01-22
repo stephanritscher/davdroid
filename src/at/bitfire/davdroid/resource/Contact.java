@@ -7,6 +7,7 @@
  ******************************************************************************/
 package at.bitfire.davdroid.resource;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.LinkedList;
@@ -54,10 +55,11 @@ public class Contact extends Resource {
 		PROPERTY_STARRED = "X-DAVDROID-STARRED",
 		PROPERTY_PHONETIC_FIRST_NAME = "X-PHONETIC-FIRST-NAME",
 		PROPERTY_PHONETIC_MIDDLE_NAME = "X-PHONETIC-MIDDLE-NAME",
-		PROPERTY_PHONETIC_LAST_NAME = "X-PHONETIC-LAST-NAME";
+		PROPERTY_PHONETIC_LAST_NAME = "X-PHONETIC-LAST-NAME",
+		PROPERTY_SIP = "X-SIP";
 		
 	public final static EmailType EMAIL_TYPE_MOBILE = EmailType.get("X-MOBILE");
-				
+
 	public final static TelephoneType
 		PHONE_TYPE_CALLBACK = TelephoneType.get("X-CALLBACK"),
 		PHONE_TYPE_COMPANY_MAIN = TelephoneType.get("X-COMPANY_MAIN"),
@@ -95,9 +97,14 @@ public class Contact extends Resource {
 		super(localID, resourceName, eTag);
 	}
 
+	
 	@Override
-	public void initialize() {
+	public void generateUID() {
 		uid = UUID.randomUUID().toString();
+	}
+	
+	@Override
+	public void generateName() {
 		name = uid + ".vcf";
 	}
 
@@ -112,7 +119,7 @@ public class Contact extends Resource {
 		
 		Uid uid = vcard.getUid();
 		if (uid == null) {
-			Log.w(TAG, "Received VCONTACT without UID, generating new one");
+			Log.w(TAG, "Received VCard without UID, generating new one");
 			uid = new Uid(UUID.randomUUID().toString());
 		}
 		this.uid = uid.getValue();
@@ -159,7 +166,7 @@ public class Contact extends Resource {
 		}
 		for (Role role : vcard.getRoles())
 			this.role = role.getValue();
-		
+	
 		impps = vcard.getImpps();
 		
 		Nickname nicknames = vcard.getNickname();
@@ -179,11 +186,15 @@ public class Contact extends Resource {
 
 		birthDay = vcard.getBirthday();
 		anniversary = vcard.getAnniversary();
+		
+		// get X-SIP and import as IMPP
+		for (RawProperty sip : vcard.getExtendedProperties(PROPERTY_SIP))
+			impps.add(new Impp("sip", sip.getValue()));
 	}
 
 	
 	@Override
-	public String toEntity() throws IOException {
+	public ByteArrayOutputStream toEntity() throws IOException {
 		VCard vcard = new VCard();
 		vcard.setProdId("DAVdroid/" + Constants.APP_VERSION + " (ez-vcard/" + Ezvcard.VERSION + ")");
 		
@@ -225,9 +236,6 @@ public class Contact extends Resource {
 		for (Email email : emails)
 			vcard.addEmail(email);
 
-		if (photo != null)
-			vcard.addPhoto(new Photo(photo, ImageType.JPEG));
-		
 		if (organization != null) {
 			Organization org = new Organization();
 			org.addValue(organization);
@@ -255,12 +263,19 @@ public class Contact extends Resource {
 			vcard.setAnniversary(anniversary);
 		if (birthDay != null)
 			vcard.setBirthday(birthDay);
-
+		
+		if (photo != null)
+			vcard.addPhoto(new Photo(photo, ImageType.JPEG));
+		
 		vcard.setRevision(Revision.now());
-		return Ezvcard
+		
+		ByteArrayOutputStream os = new ByteArrayOutputStream();
+		Ezvcard
 			.write(vcard)
 			.version(VCardVersion.V3_0)
-			.prodId(false)		// we provide or own PRODID
-			.go();
+			.versionStrict(false)
+			.prodId(false)		// we provide our own PRODID
+			.go(os);
+		return os;
 	}
 }

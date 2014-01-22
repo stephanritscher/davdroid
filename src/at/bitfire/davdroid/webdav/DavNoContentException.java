@@ -10,20 +10,12 @@
  ******************************************************************************/
 package at.bitfire.davdroid.webdav;
 
-import org.simpleframework.xml.Namespace;
-import org.simpleframework.xml.Root;
-import org.simpleframework.xml.Text;
+public class DavNoContentException extends DavException {
+	private static final long serialVersionUID = 6256645020350945477L;
+	
+	private final static String message = "HTTP response entity (content) expected but not received";
 
-@Root(name="href")
-@Namespace(prefix="D",reference="DAV:")
-public class DavHref {
-	@Text
-	String href;
-	
-	DavHref() {
-	}
-	
-	public DavHref(String href) {
-		this.href = href;
+	public DavNoContentException() {
+		super(message);
 	}
 }

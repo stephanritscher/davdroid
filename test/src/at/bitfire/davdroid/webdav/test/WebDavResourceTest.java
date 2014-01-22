@@ -1,21 +1,25 @@
 package at.bitfire.davdroid.webdav.test;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.List;
+
+import lombok.Cleanup;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpException;
 
 import android.content.res.AssetManager;
 import android.test.InstrumentationTestCase;
+import at.bitfire.davdroid.webdav.DavException;
+import at.bitfire.davdroid.webdav.DavMultiget;
 import at.bitfire.davdroid.webdav.HttpPropfind;
-import at.bitfire.davdroid.webdav.InvalidDavResponseException;
 import at.bitfire.davdroid.webdav.NotFoundException;
 import at.bitfire.davdroid.webdav.PreconditionFailedException;
 import at.bitfire.davdroid.webdav.WebDavResource;
-import at.bitfire.davdroid.webdav.WebDavResource.MultigetType;
 import at.bitfire.davdroid.webdav.WebDavResource.PutMode;
 
 // tests require running robohydra!
@@ -88,7 +92,7 @@ public class WebDavResourceTest extends InstrumentationTestCase {
 		try {
 			simpleFile.propfind(HttpPropfind.Mode.CURRENT_USER_PRINCIPAL);
 			fail();
-		} catch(InvalidDavResponseException ex) {
+		} catch(DavException ex) {
 		}
 		assertNull(simpleFile.getCurrentUserPrincipal());
 	}
@@ -141,15 +145,14 @@ public class WebDavResourceTest extends InstrumentationTestCase {
 	
 	public void testGet() throws URISyntaxException, IOException, HttpException {
 		simpleFile.get();
-		assertTrue(IOUtils.contentEquals(
-			assetMgr.open("test.random", AssetManager.ACCESS_STREAMING),
-			simpleFile.getContent()
-		));
+		@Cleanup InputStream is = assetMgr.open("test.random", AssetManager.ACCESS_STREAMING);
+		byte[] expected = IOUtils.toByteArray(is);
+		assertTrue(Arrays.equals(expected, simpleFile.getContent()));
 	}
 	
-	public void testMultiGet() throws InvalidDavResponseException, IOException, HttpException {
+	public void testMultiGet() throws DavException, IOException, HttpException {
 		WebDavResource davAddressBook = new WebDavResource(davCollection, "addressbooks/default.vcf", true);
-		davAddressBook.multiGet(new String[] { "1.vcf", "2.vcf" }, MultigetType.ADDRESS_BOOK);
+		davAddressBook.multiGet(DavMultiget.Type.ADDRESS_BOOK, new String[] { "1.vcf", "2.vcf" });
 		assertEquals(2, davAddressBook.getMembers().size());
 		for (WebDavResource member : davAddressBook.getMembers()) {
 			assertNotNull(member.getContent());
@@ -203,7 +206,7 @@ public class WebDavResourceTest extends InstrumentationTestCase {
 		dav.propfind(HttpPropfind.Mode.MEMBERS_COLLECTIONS);
 		List<WebDavResource> members = dav.getMembers();
 		assertEquals(2, members.size());
-		assertEquals(ROBOHYDRA_BASE + "dav/addressbooks/user%40domain/My%20Contacts%3A1.vcf/", members.get(0).getLocation().toString());
+		assertEquals(ROBOHYDRA_BASE + "dav/addressbooks/user%40domain/My%20Contacts%3a1.vcf/", members.get(0).getLocation().toString());
 		assertEquals("HTTPS://example.com/user%40domain/absolute-url.vcf", members.get(1).getLocation().toString());
 	}
 	

@@ -1,12 +1,16 @@
 /*******************************************************************************
- * Copyright (c) 2013 Richard Hirner (bitfire web engineering).
+ * Copyright (c) 2014 Richard Hirner (bitfire web engineering).
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
+ * 
+ * Contributors:
+ *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid.resource;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
@@ -21,6 +25,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import net.fortuna.ical4j.data.CalendarBuilder;
+import net.fortuna.ical4j.data.CalendarOutputter;
 import net.fortuna.ical4j.data.ParserException;
 import net.fortuna.ical4j.model.Component;
 import net.fortuna.ical4j.model.ComponentList;
@@ -30,6 +35,7 @@ import net.fortuna.ical4j.model.DefaultTimeZoneRegistryFactory;
 import net.fortuna.ical4j.model.Property;
 import net.fortuna.ical4j.model.PropertyList;
 import net.fortuna.ical4j.model.TimeZoneRegistry;
+import net.fortuna.ical4j.model.ValidationException;
 import net.fortuna.ical4j.model.component.VAlarm;
 import net.fortuna.ical4j.model.component.VEvent;
 import net.fortuna.ical4j.model.component.VTimeZone;
@@ -58,6 +64,8 @@ import net.fortuna.ical4j.model.property.Summary;
 import net.fortuna.ical4j.model.property.Transp;
 import net.fortuna.ical4j.model.property.Uid;
 import net.fortuna.ical4j.model.property.Version;
+import net.fortuna.ical4j.util.SimpleHostInfo;
+import net.fortuna.ical4j.util.UidGenerator;
 import android.text.format.Time;
 import android.util.Log;
 import at.bitfire.davdroid.Constants;
@@ -67,10 +75,10 @@ public class Event extends Resource {
 	public enum TYPE{
 		VEVENT,VTODO,UNKNOWN;
 	}
-	
 	private final static String TAG = "davdroid.Event";
-
-	private TimeZoneRegistry tzRegistry;
+	
+	private final static TimeZoneRegistry tzRegistry = new DefaultTimeZoneRegistryFactory().createRegistry();
+	
 	@Getter	@Setter	private String summary, location, description;
 
 	@Getter	private DtStart dtStart;
@@ -108,8 +116,6 @@ public class Event extends Resource {
 
 	public Event(String name, String ETag, TYPE type) {
 		super(name, ETag);
-		DefaultTimeZoneRegistryFactory factory = new DefaultTimeZoneRegistryFactory();
-		tzRegistry = factory.createRegistry();
 		this.type=type;
 	}
 
@@ -117,11 +123,17 @@ public class Event extends Resource {
 		super(localID, name, ETag);
 		this.type = type;
 	}
+
+	
+	@Override
+	public void generateUID() {
+		UidGenerator generator = new UidGenerator(new SimpleHostInfo(DavSyncAdapter.getAndroidID()), String.valueOf(android.os.Process.myPid()));
+		uid = generator.generateUid().getValue();
+	}
 	
 	
 	@Override
-	public void initialize() {
-		uid = DavSyncAdapter.generateUID();
+	public void generateName() {
 		name = uid.replace("@", "_") + ".ics";
 	}
 
@@ -163,7 +175,7 @@ public class Event extends Resource {
 			uid = todo.getUid().toString();
 		else {
 			Log.w(TAG, "Received VTODO without UID, generating new one");
-			uid = DavSyncAdapter.generateUID();
+			generateUID();
 		}
 
 		dtStart = todo.getStartDate();
@@ -212,7 +224,7 @@ public class Event extends Resource {
 			uid = event.getUid().getValue();
 		else {
 			Log.w(TAG, "Received VEVENT without UID, generating new one");
-			uid = DavSyncAdapter.generateUID();
+			generateUID();
 		}
 		
 		dtStart = event.getStartDate();	validateTimeZone(dtStart);
@@ -253,8 +265,7 @@ public class Event extends Resource {
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
-	public String toEntity() {
+	public ByteArrayOutputStream toEntity() throws IOException, ValidationException {
 		net.fortuna.ical4j.model.Calendar ical = new net.fortuna.ical4j.model.Calendar();
 		ical.getProperties().add(Version.VERSION_2_0);
 		ical.getProperties().add(new ProdId("-//bitfire web engineering//DAVdroid " + Constants.APP_VERSION + "//EN"));
@@ -263,6 +274,10 @@ public class Event extends Resource {
 		}else if(type==TYPE.VTODO){
 			fromToDo(ical);
 		}
+		CalendarOutputter output = new CalendarOutputter(false);
+		ByteArrayOutputStream os = new ByteArrayOutputStream();
+		output.output(ical, os);
+		return os;
 
 		/*
 		 * if (dtStart.getTimeZone() != null)
@@ -270,8 +285,6 @@ public class Event extends Resource {
 		 * (dtEnd.getTimeZone() != null)
 		 * ical.getComponents().add(dtEnd.getTimeZone().getVTimeZone());
 		 */
-
-		return ical.toString();
 	}
 
 	private void fromToDo(net.fortuna.ical4j.model.Calendar ical) {
@@ -311,12 +324,11 @@ public class Event extends Resource {
 			props.add(exrule);
 		if (exdate != null)
 			props.add(exdate);
-
-		if (summary != null)
+		if (summary != null && !summary.isEmpty())
 			props.add(new Summary(summary));
-		if (location != null)
+		if (location != null && !location.isEmpty())
 			props.add(new Location(location));
-		if (description != null)
+		if (description != null && !description.isEmpty())
 			props.add(new Description(description));
 
 		if (status != null)
@@ -326,9 +338,10 @@ public class Event extends Resource {
 		if (organizer != null)
 			props.add(organizer);
 		props.addAll(attendees);
+
 	}
 
-	private void fromEvent(net.fortuna.ical4j.model.Calendar ical) {
+	private void fromEvent(net.fortuna.ical4j.model.Calendar ical) throws IOException, ValidationException {
 		VEvent event = new VEvent();
 		PropertyList props = event.getProperties();
 
@@ -430,13 +443,13 @@ public class Event extends Resource {
 		return false;
 	}
 
-	protected boolean hasNoTime(DateProperty date) {
+	protected static boolean hasNoTime(DateProperty date) {
 		if (date == null)
 			return false;
 		return !(date.getDate() instanceof DateTime);
 	}
 
-	String getTzId(DateProperty date) {
+	protected static String getTzId(DateProperty date) {
 		if (date == null)
 			return null;
 
@@ -450,8 +463,8 @@ public class Event extends Resource {
 	}
 
 	/* guess matching Android timezone ID */
-	protected void validateTimeZone(DateProperty date) {
-		if (date==null||date.isUtc() || hasNoTime(date))
+	protected static void validateTimeZone(DateProperty date) {
+		if (date == null || date.isUtc() || hasNoTime(date))
 			return;
 
 		String tzID = getTzId(date);

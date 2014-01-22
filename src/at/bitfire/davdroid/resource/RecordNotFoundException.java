@@ -8,22 +8,20 @@
  * Contributors:
  *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
-package at.bitfire.davdroid.webdav;
+package at.bitfire.davdroid.resource;
 
-import org.simpleframework.xml.Namespace;
-import org.simpleframework.xml.Root;
-import org.simpleframework.xml.Text;
-
-@Root(name="href")
-@Namespace(prefix="D",reference="DAV:")
-public class DavHref {
-	@Text
-	String href;
+public class RecordNotFoundException extends LocalStorageException {
+	private static final long serialVersionUID = 4961024282198632578L;
 	
-	DavHref() {
+	private static final String detailMessage = "Record not found in local content provider"; 
+	
+	
+	RecordNotFoundException(Throwable ex) {
+		super(detailMessage, ex);
 	}
 	
-	public DavHref(String href) {
-		this.href = href;
+	RecordNotFoundException() {
+		super(detailMessage);
 	}
+
 }

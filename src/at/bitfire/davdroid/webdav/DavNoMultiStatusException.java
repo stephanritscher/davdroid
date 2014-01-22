@@ -10,20 +10,12 @@
  ******************************************************************************/
 package at.bitfire.davdroid.webdav;
 
-import org.simpleframework.xml.Namespace;
-import org.simpleframework.xml.Root;
-import org.simpleframework.xml.Text;
-
-@Root(name="href")
-@Namespace(prefix="D",reference="DAV:")
-public class DavHref {
-	@Text
-	String href;
+public class DavNoMultiStatusException extends DavException {
+	private static final long serialVersionUID = -3600405724694229828L;
 	
-	DavHref() {
-	}
+	private final static String message = "207 Multi-Status expected but not received";
 	
-	public DavHref(String href) {
-		this.href = href;
+	public DavNoMultiStatusException() {
+		super(message);
 	}
 }
