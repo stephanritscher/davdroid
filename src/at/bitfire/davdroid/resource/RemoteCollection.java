@@ -132,6 +132,8 @@ public abstract class RemoteCollection<T extends Resource> {
 	}
 	
 	public void add(Resource res) throws IOException, HttpException, ValidationException {
+		if(res==null)
+			return;
 		WebDavResource member = new WebDavResource(collection, res.getName(), res.getETag());
 		member.setContentType(memberContentType());
 		

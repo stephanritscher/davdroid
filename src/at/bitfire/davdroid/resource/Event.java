@@ -43,6 +43,7 @@ import net.fortuna.ical4j.model.component.VToDo;
 import net.fortuna.ical4j.model.parameter.Value;
 import net.fortuna.ical4j.model.property.Attendee;
 import net.fortuna.ical4j.model.property.Clazz;
+import net.fortuna.ical4j.model.property.Completed;
 import net.fortuna.ical4j.model.property.DateProperty;
 import net.fortuna.ical4j.model.property.Description;
 import net.fortuna.ical4j.model.property.DtEnd;
@@ -129,6 +130,7 @@ public class Event extends Resource {
 	public void generateUID() {
 		UidGenerator generator = new UidGenerator(new SimpleHostInfo(DavSyncAdapter.getAndroidID()), String.valueOf(android.os.Process.myPid()));
 		uid = generator.generateUid().getValue();
+		Log.wtf(TAG, uid);
 	}
 	
 	
@@ -301,6 +303,10 @@ public class Event extends Resource {
 			props.add(due);
 		if(completed!=null)
 			props.add(completed);
+		
+		if(status.getValue().equals(Status.VTODO_COMPLETED)){
+			props.add(new Completed(new DateTime(new java.util.Date())));
+		}
 
 		ical.getComponents().add(todo);
 		

@@ -328,9 +328,11 @@ public class WebDavResource {
 		switch (mode) {
 		case ADD_DONT_OVERWRITE:
 			put.addHeader("If-None-Match", "*");
+			Log.d(TAG,"add ");
 			break;
 		case UPDATE_DONT_OVERWRITE:
 			put.addHeader("If-Match", (getETag() != null) ? getETag() : "*");
+			Log.d(TAG,"update ");
 			break;
 		}
 		

@@ -38,6 +38,7 @@ import net.fortuna.ical4j.model.property.Duration;
 import net.fortuna.ical4j.model.property.ExDate;
 import net.fortuna.ical4j.model.property.ExRule;
 import net.fortuna.ical4j.model.property.Organizer;
+import net.fortuna.ical4j.model.property.PercentComplete;
 import net.fortuna.ical4j.model.property.Priority;
 import net.fortuna.ical4j.model.property.RDate;
 import net.fortuna.ical4j.model.property.RRule;
@@ -268,7 +269,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 			for(Uri a:tasksURI(account)){
 				try {
 					cursor = ctx.getContentResolver().query(a,
-							new String[] { entryColumnRemoteName(), entryColumnETag() }, null, null, null);
+							new String[] { Tasks._SYNC_ID, Tasks.SYNC1 }, null, null, null);
 					Event e=resolveCursor(localID, populate, t, cursor);
 					if(e!=null)
 						return e;
@@ -397,7 +398,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 	@Override
 	public long[] findNew() throws LocalStorageException {
 		List<Long> fresh = longArrayToList(super.findNew());
-		
+		Log.d(TAG,"new");
 		String where = Tasks._DIRTY + "=1 AND " + Tasks._SYNC_ID + " IS NULL";
 		try {
 			for (Uri uri : tasksURI(account)) {
@@ -409,22 +410,29 @@ public class LocalCalendar extends LocalCollection<Event> {
 				//long[] fresh = new long[cursor.getCount()];
 				while (cursor != null && cursor.moveToNext()) {
 					long id = cursor.getLong(0);
-					
+					Log.wtf(TAG, "id "+id);
 					// new record: generate UID + remote file name so that we can upload
-					Event resource = findById(id, false);
-					if(resource==null)
+					Event resource = findById(id, false,TYPE.VTODO);
+					if(resource==null){
+						Log.d(TAG,"resource null");
 						continue;
+					}
 					resource.generateUID();
 					resource.generateName();
 					// write generated UID + remote file name into database
 					ContentValues values = new ContentValues(2);
-					values.put(entryColumnUID(), resource.getUid());
-					values.put(entryColumnRemoteName(), resource.getName());
-					providerClient.update(ContentUris.withAppendedId(entriesURI(), id), values, null, null);
-					
+					values.put(Tasks._UID, resource.getUid());
+					values.put(Tasks._SYNC_ID, resource.getName());
+					try {
+						ctx.getContentResolver().update(ContentUris.withAppendedId(uri, id), values, null, null);
+					} catch (Exception e) {
+						throw new RemoteException();
+					}					
 					fresh.add(id);
+					Log.d(TAG,fresh.size()+" New entries");
 				}
 			}
+			Log.d(TAG,fresh.size()+" New entries");
 			return longArrayFromList(fresh);
 		} catch(RemoteException ex) {
 			throw new LocalStorageException(ex);
@@ -434,7 +442,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 	@Override
 	public long[] findUpdated() throws LocalStorageException {
 		List<Long> dirty = longArrayToList(super.findUpdated());
-		
+		Log.w(TAG,"get update");
 		String where = Tasks._DIRTY + "=1 AND " + Tasks._SYNC_ID + " IS NOT NULL";
 //		if (entryColumnParentID() != null)
 //			where += " AND " + entryColumnParentID() + "=" + String.valueOf(getId());
@@ -514,10 +522,10 @@ public class LocalCalendar extends LocalCollection<Event> {
 					new String[] {
 					/* 0 */Tasks.TITLE, Tasks.LOCATION, Tasks.DESCRIPTION,
 							Tasks.DUE, Tasks.STATUS, Tasks.PRIORITY, Tasks._ID,
-							Tasks.ACCOUNT_NAME, Tasks._SYNC_ID, Tasks.SYNC1 },
+							Tasks.ACCOUNT_NAME, Tasks._SYNC_ID, Tasks.SYNC1, Tasks.PERCENT_COMPLETE },
 					null, null, null);
 			if (cursor != null && cursor.moveToNext()) {
-				e.setUid(cursor.getString(7));
+				e.setUid(cursor.getString(8));
 
 				e.setSummary(cursor.getString(0));
 				e.setLocation(cursor.getString(1));
@@ -542,6 +550,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 
 				}
 				e.setPriority(new Priority(cursor.getInt(5)));
+				e.setCompleted(new PercentComplete(cursor.getInt(10)));
 				cursor.close();
 				return true;
 			}
@@ -690,7 +699,10 @@ public class LocalCalendar extends LocalCollection<Event> {
 
 	@Override
 	public Event findById(long localID, boolean populate) throws LocalStorageException {
-		return findById(localID, populate, TYPE.VEVENT);
+		Event e=findById(localID, populate, TYPE.VEVENT);
+		if(e!=null)
+			return e;
+		return findById(localID, populate, TYPE.VTODO);
 	}
 	
 	public Event newResource(long localID, String resourceName, String eTag) {
@@ -894,6 +906,10 @@ public class LocalCalendar extends LocalCollection<Event> {
 		if (todo.getDescription() != null)
 			builder = builder.withValue(Tasks.DESCRIPTION,
 					todo.getDescription());
+		if(todo.getCompleted()!=null){
+			builder.withValue(Tasks.PERCENT_COMPLETE, todo.getCompleted().getPercentage());
+		}
+		
 
 		return builder;
 	}
@@ -1095,6 +1111,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 	protected Uri calendarsURI() {
 		return calendarsURI(account);
 	}
+
+
 
 
 }
