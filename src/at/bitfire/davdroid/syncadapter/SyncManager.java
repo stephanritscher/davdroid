@@ -37,7 +37,6 @@ public class SyncManager {
 	
 	
 	public SyncManager(LocalCollection<? extends Resource> local, RemoteCollection<? extends Resource> remote) {
-		Log.d(TAG,"new sync manager");
 		this.local = local;
 		this.remote = remote;
 	}
@@ -45,17 +44,17 @@ public class SyncManager {
 	
 	public void synchronize(boolean manualSync, SyncResult syncResult) throws LocalStorageException, IOException, HttpException {
 		// PHASE 1: push local changes to server
-		Log.wtf(TAG, "phase 1");
+//		Log.wtf(TAG, "phase 1");
 		int	deletedRemotely = pushDeleted(),
 			addedRemotely = pushNew(),
 			updatedRemotely = pushDirty();
-		Log.wtf(TAG, "phase 2a");
+//		Log.wtf(TAG, "phase 2a");
 		syncResult.stats.numEntries = deletedRemotely + addedRemotely + updatedRemotely;
 		
 		// PHASE 2A: check if there's a reason to do a sync with remote (= forced sync or remote CTag changed)
 		boolean fetchCollection = syncResult.stats.numEntries > 0;
 		if (manualSync) {
-			Log.i(TAG, "Synchronization forced");
+//			Log.i(TAG, "Synchronization forced");
 			fetchCollection = true;
 		}
 		if (!fetchCollection) {
@@ -64,7 +63,7 @@ public class SyncManager {
 			if (currentCTag == null || !currentCTag.equals(lastCTag))
 				fetchCollection = true;
 		}
-		Log.wtf(TAG, "phase 2b");
+//		Log.wtf(TAG, "phase 2b");
 		// PHASE 2B: detect details of remote changes
 		Log.i(TAG, "Fetching remote resource list");
 		Set<Resource>	remotelyAdded = new HashSet<Resource>(),
@@ -81,7 +80,7 @@ public class SyncManager {
 			}
 		}
 		
-		Log.wtf(TAG, "phase 3");
+//		Log.wtf(TAG, "phase 3");
 		// PHASE 3: pull remote changes from server
 		syncResult.stats.numInserts = pullNew(remotelyAdded.toArray(new Resource[0]));
 		syncResult.stats.numUpdates = pullChanged(remotelyUpdated.toArray(new Resource[0]));
@@ -126,7 +125,6 @@ public class SyncManager {
 	
 	private int pushNew() throws LocalStorageException, IOException, HttpException {
 		int count = 0;
-		Log.d(TAG,"new");
 		long[] newIDs = local.findNew();
 		Log.i(TAG, "Uploading " + newIDs.length + " new resource(s) (if not existing)");
 		try {
@@ -151,7 +149,6 @@ public class SyncManager {
 	
 	private int pushDirty() throws LocalStorageException, IOException, HttpException {
 		int count = 0;
-		Log.d(TAG,"add new");
 		long[] dirtyIDs = local.findUpdated();
 		Log.i(TAG, "Uploading " + dirtyIDs.length + " modified resource(s) (if not changed)");
 		try {

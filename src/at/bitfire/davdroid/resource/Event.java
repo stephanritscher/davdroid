@@ -130,7 +130,6 @@ public class Event extends Resource {
 	public void generateUID() {
 		UidGenerator generator = new UidGenerator(new SimpleHostInfo(DavSyncAdapter.getAndroidID()), String.valueOf(android.os.Process.myPid()));
 		uid = generator.generateUid().getValue();
-		Log.wtf(TAG, uid);
 	}
 	
 	

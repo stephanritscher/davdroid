@@ -54,7 +54,6 @@ public class CalendarsSyncAdapterService extends Service {
 		}
 		@Override
 		protected Map<LocalCollection<?>, RemoteCollection<?>> getSyncPairs(Account account, ContentProviderClient provider) {
-			Log.d(TAG,"get sync pairs");
 			try {
 				Map<LocalCollection<?>, RemoteCollection<?>> map = new HashMap<LocalCollection<?>, RemoteCollection<?>>();
 				
@@ -67,7 +66,6 @@ public class CalendarsSyncAdapterService extends Service {
 					
 					map.put(calendar, dav);
 				}
-				Log.d(TAG,"finisch get sync pairs");
 				return map;
 			} catch (RemoteException ex) {
 				Log.e(TAG, "Couldn't find local calendars", ex);

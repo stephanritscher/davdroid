@@ -398,7 +398,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 	@Override
 	public long[] findNew() throws LocalStorageException {
 		List<Long> fresh = longArrayToList(super.findNew());
-		Log.d(TAG,"new");
 		String where = Tasks._DIRTY + "=1 AND " + Tasks._SYNC_ID + " IS NULL";
 		try {
 			for (Uri uri : tasksURI(account)) {
@@ -410,11 +409,9 @@ public class LocalCalendar extends LocalCollection<Event> {
 				//long[] fresh = new long[cursor.getCount()];
 				while (cursor != null && cursor.moveToNext()) {
 					long id = cursor.getLong(0);
-					Log.wtf(TAG, "id "+id);
 					// new record: generate UID + remote file name so that we can upload
 					Event resource = findById(id, false,TYPE.VTODO);
 					if(resource==null){
-						Log.d(TAG,"resource null");
 						continue;
 					}
 					resource.generateUID();
@@ -429,10 +426,8 @@ public class LocalCalendar extends LocalCollection<Event> {
 						throw new RemoteException();
 					}					
 					fresh.add(id);
-					Log.d(TAG,fresh.size()+" New entries");
 				}
 			}
-			Log.d(TAG,fresh.size()+" New entries");
 			return longArrayFromList(fresh);
 		} catch(RemoteException ex) {
 			throw new LocalStorageException(ex);
@@ -442,7 +437,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 	@Override
 	public long[] findUpdated() throws LocalStorageException {
 		List<Long> dirty = longArrayToList(super.findUpdated());
-		Log.w(TAG,"get update");
 		String where = Tasks._DIRTY + "=1 AND " + Tasks._SYNC_ID + " IS NOT NULL";
 //		if (entryColumnParentID() != null)
 //			where += " AND " + entryColumnParentID() + "=" + String.valueOf(getId());
@@ -506,7 +500,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 			if (success) {
 				e.setType(TYPE.VTODO);
 			} else {
-				Log.d(TAG, "Not VEVENT or VTODO");
+				Log.w(TAG, "Not VEVENT or VTODO");
 				throw new RuntimeException();
 			}
 		}
@@ -747,7 +741,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 		List<Uri> uris = new ArrayList<Uri>();
 		PackageManager pm = ctx.getPackageManager();
 		try {
-			Log.d(TAG,"get info");
 			PackageInfo mirakel = pm.getPackageInfo("de.azapps.mirakelandroid",
 					PackageManager.GET_PROVIDERS);
 			if (mirakel != null && mirakel.versionCode > 18) {
