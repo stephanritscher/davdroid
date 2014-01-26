@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -312,16 +313,27 @@ public class LocalAddressBook extends LocalCollection<Contact> {
 	}
 	
 	protected void populateOrganization(Contact c) throws RemoteException {
-		@Cleanup Cursor cursor = providerClient.query(dataURI(), new String[] { Organization.COMPANY, Organization.TITLE },
+		@Cleanup Cursor cursor = providerClient.query(dataURI(),
+				new String[] { Organization.COMPANY, Organization.DEPARTMENT, Organization.TITLE, Organization.JOB_DESCRIPTION },
 				Photo.RAW_CONTACT_ID + "=? AND " + Data.MIMETYPE + "=?",
 				new String[] { String.valueOf(c.getLocalID()), Organization.CONTENT_ITEM_TYPE }, null);
 		if (cursor != null && cursor.moveToNext()) {
-			String	org = cursor.getString(0),
-					role = cursor.getString(1);
-			if (!StringUtils.isEmpty(org))
+			String	company = cursor.getString(0),
+					department = cursor.getString(1),
+					title = cursor.getString(2),
+					role = cursor.getString(3);
+			if (!StringUtils.isEmpty(company) || !StringUtils.isEmpty(department)) {
+				ezvcard.property.Organization org = new ezvcard.property.Organization();
+				if (!StringUtils.isEmpty(company))
+					org.addValue(company);
+				if (!StringUtils.isEmpty(department))
+					org.addValue(department);
 				c.setOrganization(org);
+			}
+			if (!StringUtils.isEmpty(title))
+				c.setJobTitle(title);
 			if (!StringUtils.isEmpty(role))
-				c.setRole(role);
+				c.setJobDescription(role);
 		}
 	}
 	
@@ -439,7 +451,7 @@ public class LocalAddressBook extends LocalCollection<Contact> {
 		@Cleanup Cursor cursor = providerClient.query(dataURI(), new String[] { Website.URL },
 				Website.RAW_CONTACT_ID + "=? AND " + Data.MIMETYPE + "=?",
 				new String[] { String.valueOf(c.getLocalID()), Website.CONTENT_ITEM_TYPE }, null);
-		if (cursor != null && cursor.moveToNext())
+		while (cursor != null && cursor.moveToNext())
 			c.getURLs().add(cursor.getString(0));
 	}
 	
@@ -520,8 +532,9 @@ public class LocalAddressBook extends LocalCollection<Contact> {
 		if (contact.getPhoto() != null)
 			queueOperation(buildPhoto(newDataInsertBuilder(localID, backrefIdx), contact.getPhoto()));
 		
-		if (contact.getOrganization() != null || contact.getRole() != null)
-			queueOperation(buildOrganization(newDataInsertBuilder(localID, backrefIdx), contact.getOrganization(), contact.getRole()));
+		if (contact.getOrganization() != null || contact.getJobTitle() != null || contact.getJobDescription() != null)
+			queueOperation(buildOrganization(newDataInsertBuilder(localID, backrefIdx),
+				contact.getOrganization(), contact.getJobTitle(), contact.getJobDescription()));
 			
 		for (Impp impp : contact.getImpps())
 			queueOperation(buildIMPP(newDataInsertBuilder(localID, backrefIdx), impp));
@@ -683,11 +696,23 @@ public class LocalAddressBook extends LocalCollection<Contact> {
 			.withValue(Photo.PHOTO, photo);
 	}
 	
-	protected Builder buildOrganization(Builder builder, String organization, String role) {
+	protected Builder buildOrganization(Builder builder, ezvcard.property.Organization organization, String jobTitle, String jobDescription) {
+		String company = null, department = null;
+		
+		if (organization != null) {
+			Iterator<String> org = organization.getValues().iterator();
+			if (org.hasNext())
+				company = org.next();
+			if (org.hasNext())
+				department = org.next();
+		}
+		
 		return builder
 				.withValue(Data.MIMETYPE, Organization.CONTENT_ITEM_TYPE)
-				.withValue(Organization.COMPANY, organization)
-				.withValue(Organization.TITLE, role);
+				.withValue(Organization.COMPANY, company)
+				.withValue(Organization.DEPARTMENT, department)
+				.withValue(Organization.TITLE, jobTitle)
+				.withValue(Organization.JOB_DESCRIPTION, jobDescription);
 	}
 
 	protected Builder buildIMPP(Builder builder, Impp impp) {

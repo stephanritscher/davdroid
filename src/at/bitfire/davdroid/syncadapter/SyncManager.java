@@ -60,10 +60,16 @@ public class SyncManager {
 		if (!fetchCollection) {
 			String	currentCTag = remote.getCTag(),
 					lastCTag = local.getCTag();
+			Log.d(TAG, "Last local CTag = " + lastCTag + "; current remote CTag = " + currentCTag);
 			if (currentCTag == null || !currentCTag.equals(lastCTag))
 				fetchCollection = true;
 		}
 //		Log.wtf(TAG, "phase 2b");
+		
+		if (!fetchCollection) {
+			Log.i(TAG, "No local changes and CTags match, no need to sync");
+			return;
+		}
 		// PHASE 2B: detect details of remote changes
 		Log.i(TAG, "Fetching remote resource list");
 		Set<Resource>	remotelyAdded = new HashSet<Resource>(),
@@ -73,7 +79,7 @@ public class SyncManager {
 		for (Resource remoteResource : remoteResources) {
 			try {
 				Resource localResource = local.findByRemoteName(remoteResource.getName(), false);
-				if (!remoteResource.getETag().equals(localResource.getETag()))
+				if (localResource.getETag() == null || !localResource.getETag().equals(remoteResource.getETag()))
 					remotelyUpdated.add(remoteResource);
 			} catch(RecordNotFoundException e) {
 				remotelyAdded.add(remoteResource);
