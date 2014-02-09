@@ -52,14 +52,14 @@ public class ContactsSyncAdapterService extends Service {
 
 		@Override
 		protected Map<LocalCollection<?>, RemoteCollection<?>> getSyncPairs(Account account, ContentProviderClient provider) {
-			String addressBookPath = accountManager.getUserData(account, Constants.ACCOUNT_KEY_ADDRESSBOOK_PATH);
-			if (addressBookPath == null)
+			String addressBookURL = accountManager.getUserData(account, Constants.ACCOUNT_KEY_ADDRESSBOOK_URL);
+			if (addressBookURL == null)
 				return null;
 			
 			try {
 				LocalCollection<?> database = new LocalAddressBook(account, provider, accountManager);
 				
-				URI uri = new URI(accountManager.getUserData(account, Constants.ACCOUNT_KEY_BASE_URL)).resolve(addressBookPath);
+				URI uri = new URI(addressBookURL);
 				RemoteCollection<?> dav = new CardDavAddressBook(
 					uri.toString(),
 					accountManager.getUserData(account, Constants.ACCOUNT_KEY_USERNAME),

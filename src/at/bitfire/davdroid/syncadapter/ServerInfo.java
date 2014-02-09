@@ -15,19 +15,21 @@ import java.util.LinkedList;
 import java.util.List;
 
 import lombok.Data;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 @RequiredArgsConstructor(suppressConstructorProperties=true)
 @Data
 public class ServerInfo implements Serializable {
 	private static final long serialVersionUID = 6744847358282980437L;
 	
-	final private String baseURL;
 	final private String userName, password;
 	final boolean authPreemptive;
 	
 	private String errorMessage;
 	
+	@Getter @Setter private String baseURL;
 	private boolean calDAV, cardDAV;
 	private List<ResourceInfo>
 		addressBooks = new LinkedList<ResourceInfo>(),
@@ -46,7 +48,7 @@ public class ServerInfo implements Serializable {
 	public static class ResourceInfo implements Serializable {
 		private static final long serialVersionUID = -5516934508229552112L;
 		
-		enum Type {
+		public enum Type {
 			ADDRESS_BOOK,
 			CALENDAR
 		}
@@ -54,7 +56,7 @@ public class ServerInfo implements Serializable {
 		boolean enabled = false;
 		
 		final Type type;
-		final String path, title, description, color;
+		final String url, title, description, color;
 		
 		String timezone;
 	}

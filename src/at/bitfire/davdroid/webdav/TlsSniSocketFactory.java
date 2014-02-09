@@ -74,14 +74,14 @@ public class TlsSniSocketFactory implements LayeredSocketFactory {
 			Log.d(TAG, "Setting SNI hostname");
 			sslSocketFactory.setHostname(ssl, host);
 		} else
-			Log.i(TAG, "No SNI support below Android 4.2!");
+			Log.d(TAG, "Hint: No SNI support on this device (needs Android 4.2+)!");
 		
 		// verify hostname and certificate
 		SSLSession session = ssl.getSession();
 		if (!hostnameVerifier.verify(host, session))
 			throw new SSLPeerUnverifiedException("Cannot verify hostname: " + host);
 		
-		Log.i(TAG, "Established " + session.getProtocol() + " connection with " + session.getPeerHost() +
+		Log.d(TAG, "Established " + session.getProtocol() + " connection with " + session.getPeerHost() +
 				" using " + session.getCipherSuite());
 
 		return ssl;

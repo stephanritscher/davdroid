@@ -128,7 +128,7 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 	protected void setContent(CheckedTextView view, ServerInfo.ResourceInfo info) {
 		String description = info.getDescription();
 		if (description == null)
-			description = info.getPath();
+			description = info.getUrl();
 		
 		// FIXME escape HTML
 		view.setText(Html.fromHtml("<b>" + info.getTitle() + "</b><br/>" + description));

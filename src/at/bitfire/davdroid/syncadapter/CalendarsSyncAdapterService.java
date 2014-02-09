@@ -10,7 +10,6 @@
  ******************************************************************************/
 package at.bitfire.davdroid.syncadapter;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
@@ -57,9 +56,7 @@ public class CalendarsSyncAdapterService extends Service {
 				Map<LocalCollection<?>, RemoteCollection<?>> map = new HashMap<LocalCollection<?>, RemoteCollection<?>>();
 				
 				for (LocalCalendar calendar : LocalCalendar.findAll(account, provider)) {
-					URI baseURI = new URI(accountManager.getUserData(account, Constants.ACCOUNT_KEY_BASE_URL));
-					URI uri = baseURI.resolve(calendar.getPath());
-					RemoteCollection<?> dav = new CalDavCalendar(uri.toString(),
+					RemoteCollection<?> dav = new CalDavCalendar(calendar.getUrl(),
 						accountManager.getUserData(account, Constants.ACCOUNT_KEY_USERNAME),
 						accountManager.getPassword(account),
 						Boolean.parseBoolean(accountManager.getUserData(account, Constants.ACCOUNT_KEY_AUTH_PREEMPTIVE)));

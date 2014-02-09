@@ -37,8 +37,10 @@ import org.apache.http.StatusLine;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.AuthenticationException;
 import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpOptions;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ByteArrayEntity;
@@ -58,6 +60,8 @@ import at.bitfire.davdroid.webdav.DavProp.DavPropComp;
 @ToString
 public class WebDavResource {
 	private static final String TAG = "davdroid.WebDavResource";
+	
+	private static final int MAX_REDIRECTS = 5;
 	
 	public enum Property {
 		CURRENT_USER_PRINCIPAL,
@@ -111,7 +115,7 @@ public class WebDavResource {
 			new UsernamePasswordCredentials(username, password)
 		);
 		if (preemptive) {
-			Log.i(TAG, "Using preemptive authentication (not compatible with Digest auth)");
+			Log.d(TAG, "Using preemptive authentication (not compatible with Digest auth)");
 			client.addRequestInterceptor(new PreemptiveAuthInterceptor(), 0);
 		}
 	}
@@ -136,6 +140,45 @@ public class WebDavResource {
 	
 
 	/* feature detection */
+	
+	public String checkRedirection() throws ClientProtocolException, IOException {
+		Log.i(TAG, "Checking for redirection at " + location);
+
+		URI uri = location;
+		boolean secure = "https".equalsIgnoreCase(uri.getScheme());
+		
+		for (int redirects = 0; redirects < MAX_REDIRECTS; redirects++) {
+			HttpHead head = new HttpHead(uri);
+			HttpResponse response = client.execute(head);
+			
+			StatusLine status = response.getStatusLine();
+			if (status.getStatusCode()/100 == 3) {
+				Header hdrLocation = response.getFirstHeader("Location");
+				if (hdrLocation != null) {
+					String location = hdrLocation.getValue();
+					if (location != null) {
+						Log.i(TAG, "Found redirection -> " + location);
+						try {
+							uri = new URI(location);
+							if (secure && !"https".equalsIgnoreCase(uri.getScheme())) {
+								Log.e(TAG, "Redirection from https:// to other URL scheme not allowed, ignoring");
+								break;
+							}
+							continue;
+						} catch (URISyntaxException e) {
+							Log.w(TAG, "Invalid redirection URL: " + location);
+						}
+					}
+				}
+				break;
+			} else {
+				String location = uri.toASCIIString();
+				Log.i(TAG, "Using " + location + " (doesn't redirect anymore)");
+				return location;
+			}
+		}
+		return null;
+	}
 
 	public void options() throws IOException, HttpException {
 		HttpOptions options = new HttpOptions(location);
