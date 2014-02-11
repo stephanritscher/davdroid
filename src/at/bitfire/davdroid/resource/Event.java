@@ -138,14 +138,18 @@ public class Event extends Resource {
 		name = uid.replace("@", "_") + ".ics";
 	}
 
-	@Override
-	public void parseEntity(@NonNull InputStream entity) throws IOException, ParserException {
-		CalendarBuilder builder = new CalendarBuilder();
-		net.fortuna.ical4j.model.Calendar ical = builder.build(entity);
-		if (ical == null)
-			return;
-		Log.d(TAG, "Parsing iCal: " + ical.toString());
-		
+	@SuppressWarnings("unchecked")
+	public void parseEntity(@NonNull InputStream entity) throws IOException, InvalidResourceException {
+		net.fortuna.ical4j.model.Calendar ical;
+		try {
+			CalendarBuilder builder = new CalendarBuilder();
+			ical = builder.build(entity);
+
+			if (ical == null)
+				throw new InvalidResourceException("No iCalendar found");
+		} catch (ParserException e) {
+			throw new InvalidResourceException(e);
+		}		
 		// event
 		ComponentList events = ical.getComponents(Component.VEVENT);
 		if (events.size() > 0) {
@@ -228,10 +232,27 @@ public class Event extends Resource {
 			generateUID();
 		}
 		
-		dtStart = event.getStartDate();	validateTimeZone(dtStart);
-		dtEnd = event.getEndDate(); validateTimeZone(dtEnd);
+		if ((dtStart = event.getStartDate()) == null || (dtEnd = event.getEndDate()) == null){
+			Log.d(TAG,"Invalid start time/end time/duration");
+			//throw new InvalidResourceException("Invalid start time/end time/duration");
+		}
+
+		if (hasTime(dtStart)) {
+			validateTimeZone(dtStart);
+			validateTimeZone(dtEnd);
+		}
 		
-		duration = event.getDuration();
+		// all-day events and "events on that day":
+		// * related UNIX times must be in UTC
+		// * must have a duration (set to one day if missing)
+		if (!hasTime(dtStart) && !dtEnd.getDate().after(dtStart.getDate())) {
+			Log.i(TAG, "Repairing iCal: DTEND := DTSTART+1");
+			Calendar c = Calendar.getInstance(TimeZone.getTimeZone(Time.TIMEZONE_UTC));
+			c.setTime(dtStart.getDate());
+			c.add(Calendar.DATE, 1);
+			dtEnd.setDate(new Date(c.getTimeInMillis()));
+		}
+		
 		rrule = (RRule)event.getProperty(Property.RRULE);
 		rdate = (RDate)event.getProperty(Property.RDATE);
 		exrule = (ExRule)event.getProperty(Property.EXRULE);
@@ -266,18 +287,25 @@ public class Event extends Resource {
 	}
 
 	@Override
-	public ByteArrayOutputStream toEntity() throws IOException, ValidationException {
+	@SuppressWarnings("unchecked")
+	public ByteArrayOutputStream toEntity() throws IOException {
 		net.fortuna.ical4j.model.Calendar ical = new net.fortuna.ical4j.model.Calendar();
 		ical.getProperties().add(Version.VERSION_2_0);
 		ical.getProperties().add(new ProdId("-//bitfire web engineering//DAVdroid " + Constants.APP_VERSION + "//EN"));
-		if(type==TYPE.VEVENT){
-			fromEvent(ical);
-		}else if(type==TYPE.VTODO){
-			fromToDo(ical);
+		ByteArrayOutputStream os=null;
+		try {
+			if(type==TYPE.VEVENT){
+				fromEvent(ical);
+			}else if(type==TYPE.VTODO){
+				fromToDo(ical);
+			}
+			CalendarOutputter output = new CalendarOutputter(false);
+			os = new ByteArrayOutputStream();
+			output.output(ical, os);
+		} catch (ValidationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		CalendarOutputter output = new CalendarOutputter(false);
-		ByteArrayOutputStream os = new ByteArrayOutputStream();
-		output.output(ical, os);
 		return os;
 
 		/*
@@ -372,10 +400,18 @@ public class Event extends Resource {
 			ical.getComponents().add(tzStart.getVTimeZone());
 		if (tzEnd != null && tzEnd != tzStart)
 			ical.getComponents().add(tzEnd.getVTimeZone());
+		CalendarOutputter output = new CalendarOutputter(false);
+		ByteArrayOutputStream os = new ByteArrayOutputStream();
+		try {
+			output.output(ical, os);
+		} catch (ValidationException e) {
+			Log.e(TAG, "Generated invalid iCalendar");
+		}
+//		return os;
 	}
 
 	public long getDtStartInMillis() {
-		return (dtStart != null && dtStart.getDate() != null) ? dtStart.getDate().getTime() : 0;
+		return dtStart.getDate().getTime();
 	}
 	
 	public String getDtStartTzID() {
@@ -403,19 +439,10 @@ public class Event extends Resource {
 	}
 
 
-	public Long getDtEndInMillis() {
-		if (hasNoTime(dtStart) && dtEnd == null) {		// "event on that day"
-			// dtEnd = dtStart + 1 day
-			Calendar c = Calendar.getInstance(TimeZone
-					.getTimeZone(Time.TIMEZONE_UTC));
-			c.setTime(dtStart.getDate());
-			c.add(Calendar.DATE, 1);
-			return c.getTimeInMillis();
-			
-		} else if (dtEnd == null || dtEnd.getDate() == null) {	// no DTEND provided (maybe DURATION instead)
-			return null;
+	public long getDtEndInMillis() {
+		if (dtEnd == null || dtEnd.getDate() == null) {	// no DTEND provided (maybe DURATION instead)
+			return 0;
 		}
-
 		return dtEnd.getDate().getTime();
 	}
 
@@ -436,40 +463,30 @@ public class Event extends Resource {
 	// helpers
 
 	public boolean isAllDay() {
-		if (hasNoTime(dtStart)) {
-			// events on that day
-			if (dtEnd == null)
-				return true;
-
-			// all-day events
-			if (hasNoTime(dtEnd))
-				return true;
-		}
-		return false;
+		return !hasTime(dtStart);
 	}
 
-	protected static boolean hasNoTime(DateProperty date) {
-		if (date == null)
-			return false;
-		return !(date.getDate() instanceof DateTime);
+	protected static boolean hasTime(DateProperty date) {
+		return date.getDate() instanceof DateTime;
 	}
 
 	protected static String getTzId(DateProperty date) {
 		if (date == null)
 			return null;
-
-		if (hasNoTime(date) || date.isUtc())
+		if (date.isUtc() || !hasTime(date))
 			return Time.TIMEZONE_UTC;
 		else if (date.getTimeZone() != null)
 			return date.getTimeZone().getID();
 		else if (date.getParameter(Value.TZID) != null)
 			return date.getParameter(Value.TZID).getValue();
-		return null;
+		
+		// fallback
+		return Time.TIMEZONE_UTC;
 	}
 
 	/* guess matching Android timezone ID */
 	protected static void validateTimeZone(DateProperty date) {
-		if (date == null || date.isUtc() || hasNoTime(date))
+		if (date.isUtc() || !hasTime(date))
 			return;
 
 		String tzID = getTzId(date);
@@ -499,7 +516,7 @@ public class Event extends Resource {
 
 
 	public long getDueInMillis() {
-		if (hasNoTime(due) && due == null) {
+		if (!hasTime(due) && due == null) {
 			// dtEnd = dtStart + 1 day
 			Calendar c = Calendar.getInstance(TimeZone
 					.getTimeZone(Time.TIMEZONE_UTC));
