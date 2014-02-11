@@ -890,6 +890,22 @@ public class LocalCalendar extends LocalCollection<Event> {
 				.withValue(Tasks.TITLE, todo.getSummary())
 				.withValue(Tasks.SYNC1, todo.getETag())
 				.withValue(Tasks._SYNC_ID, todo.getName());
+		if(todo.getStatus()!=null){
+			Status status=todo.getStatus();
+			if(status==Status.VTODO_CANCELLED){
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_CANCELLED);
+			}else if(status==Status.VTODO_COMPLETED){
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_COMPLETED);
+			}else if(status==Status.VTODO_IN_PROCESS){
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_IN_PROCESS);
+			}else if(status==Status.VTODO_NEEDS_ACTION){
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_NEEDS_ACTION);
+			}else{
+				builder.withValue(Tasks.STATUS, Tasks.STATUS_DEFAULT);
+			}
+		}else{
+			builder.withValue(Tasks.STATUS, Tasks.STATUS_DEFAULT);
+		}
 		// .withValue(Tasks.U, value)//TODO uid??
 		if (todo.getDue() != null)
 			builder = builder.withValue(Tasks.DUE, todo.getDueInMillis());
