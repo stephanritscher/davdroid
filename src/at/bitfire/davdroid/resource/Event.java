@@ -486,7 +486,7 @@ public class Event extends Resource {
 
 	/* guess matching Android timezone ID */
 	protected static void validateTimeZone(DateProperty date) {
-		if (date.isUtc() || !hasTime(date))
+		if (date==null||date.isUtc() || !hasTime(date))
 			return;
 
 		String tzID = getTzId(date);
