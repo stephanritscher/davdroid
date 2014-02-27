@@ -1,12 +1,21 @@
 package at.bitfire.davdroid.webdav;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpException;
+import org.apache.http.client.ClientProtocolException;
+import org.xbill.DNS.Lookup;
+import org.xbill.DNS.Record;
+import org.xbill.DNS.SRVRecord;
+import org.xbill.DNS.TextParseException;
+import org.xbill.DNS.Type;
 
 import android.content.Context;
 import android.util.Log;
@@ -26,21 +35,10 @@ public class ResourceDetection {
 	
 
 	public void detectCollections(ServerInfo serverInfo) throws URISyntaxException, IOException, HttpException {
-		String baseURL = serverInfo.getBaseURL();
-		
-		WebDavResource base = new WebDavResource(new URI(baseURL), true);
-
+		//WebDavResource base = new WebDavResource(new URI(baseURL), true);
 		
 		/*** CalDAV ***/
-		
-		WebDavResource wellKnown = new WebDavResource(base, "/.well-known/caldav");
-		String baseCalDavURL = wellKnown.checkRedirection();
-		if (baseCalDavURL == null)		// no well-known CalDAV URL
-			baseCalDavURL = baseURL;
-		
-		Log.i(TAG, "CalDAV base URL: " + baseCalDavURL);
-		WebDavResource baseCalDAV = new WebDavResource(new URI(baseCalDavURL), serverInfo.getUserName(),
-				serverInfo.getPassword(), serverInfo.isAuthPreemptive(), true);
+		WebDavResource baseCalDAV = discoverService(serverInfo, "caldav");
 		
 		// detect capabilities
 		baseCalDAV.options();
@@ -48,20 +46,15 @@ public class ResourceDetection {
 		if (hasCalDAV) {
 			checkDavMethods(baseCalDAV);
 
-			// find principal path
-			String principalPath = getPrincipalPath(baseCalDAV);
-			
-			// find home sets
-			WebDavResource principal = new WebDavResource(baseCalDAV, principalPath);
-			principal.propfind(Mode.HOME_SETS);
-			String pathCalendars = principal.getCalendarHomeSet();
+			baseCalDAV.propfind(Mode.HOME_SETS);
+			String pathCalendars = baseCalDAV.getCalendarHomeSet();
 			
 			if (pathCalendars != null) {
 				Log.i(TAG, "Found calendar home set: " + pathCalendars);
 				serverInfo.setCalDAV(true);
 				
 				// find calendars
-				WebDavResource homeSetCalendars = new WebDavResource(principal, pathCalendars, true);
+				WebDavResource homeSetCalendars = new WebDavResource(baseCalDAV, pathCalendars, true);
 				homeSetCalendars.propfind(Mode.MEMBERS_COLLECTIONS);
 				
 				List<ServerInfo.ResourceInfo> calendars = new LinkedList<ServerInfo.ResourceInfo>();
@@ -95,36 +88,24 @@ public class ResourceDetection {
 		
 		
 		/*** CardDAV ***/
-		
-		wellKnown = new WebDavResource(base, "/.well-known/carddav");
-		String baseCardDavURL = wellKnown.checkRedirection();
-		if (baseCardDavURL == null)		// no well-known CardDAV URL
-			baseCardDavURL = baseURL;
-
-		Log.i(TAG, "CardDAV base URL: " + baseCardDavURL);
-		WebDavResource baseCardDAV = new WebDavResource(new URI(baseCardDavURL), serverInfo.getUserName(),
-				serverInfo.getPassword(), serverInfo.isAuthPreemptive(), true);
+		WebDavResource baseCardDAV = discoverService(serverInfo, "carddav");
 		
 		// detect capabilities
 		baseCardDAV.options();
 		boolean hasCardDAV = baseCardDAV.supportsDAV("addressbook");
 		if (hasCardDAV) {
 			checkDavMethods(baseCardDAV);
-
-			// find principal path
-			String principalPath = getPrincipalPath(baseCardDAV);
 			
 			// find home sets
-			WebDavResource principal = new WebDavResource(baseCardDAV, principalPath);
-			principal.propfind(Mode.HOME_SETS);
-			String pathAddressBooks = principal.getAddressbookHomeSet();
+			baseCardDAV.propfind(Mode.HOME_SETS);
+			String pathAddressBooks = baseCardDAV.getAddressbookHomeSet();
 			
 			if (pathAddressBooks != null) {
 				Log.i(TAG, "Found address-book home set: " + pathAddressBooks);
 				serverInfo.setCardDAV(true);
 				
 				// find address books
-				WebDavResource homeSetAddressBooks = new WebDavResource(principal, pathAddressBooks, true);
+				WebDavResource homeSetAddressBooks = new WebDavResource(baseCardDAV, pathAddressBooks, true);
 				homeSetAddressBooks.propfind(Mode.MEMBERS_COLLECTIONS);
 				
 				List<ServerInfo.ResourceInfo> addressBooks = new LinkedList<ServerInfo.ResourceInfo>();
@@ -150,7 +131,74 @@ public class ResourceDetection {
 			throw new DavIncapableException(context.getString(R.string.neither_caldav_nor_carddav));
 		
 		// TODO support different base paths for CalDAV and CardDAV
-		serverInfo.setBaseURL(baseCalDavURL);
+		serverInfo.setProvidedURL(baseCalDAV.getLocation().toASCIIString());
+	}
+
+	// service discovery by RFC 6764
+	WebDavResource discoverService(ServerInfo serverInfo, String service) throws DavIncapableException {
+		String providedURL = serverInfo.getProvidedURL();
+		
+		// 1. processing user input
+		URL url;
+		try {
+			url = new URL(providedURL);
+		} catch (MalformedURLException e) {
+			return null;
+		}
+		
+		// 2. determination of service FQDN and port number
+		String protocol = url.getProtocol();
+		String host = url.getHost();
+		int port = url.getPort(); if (port == -1) port = url.getDefaultPort();
+		String contextPath = "/.well-known/" + service;
+		
+		try {
+			String domain = host;
+			
+			String query = "_" + service + "s._tcp." + domain;
+			Log.i(TAG, "Trying to discover service " + query);
+			Record[] records = new Lookup(query, Type.SRV).run();
+			if (records != null) {
+				Log.d(TAG, "Received " + records.length + " SRV records");
+				for (Record record : records) {
+					SRVRecord srv = (SRVRecord)record;
+					protocol = "https";
+					host = srv.getTarget().toString(true);
+					port = srv.getPort();
+					Log.i(TAG, "Found service " + service + " on https://" + host + ":" + port);
+					break;
+				}
+			}
+		} catch (TextParseException e) {
+			Log.e(TAG, "Service discovery: couldn't parse DNS records");
+		}
+
+		// 5. connecting to the service
+		WebDavResource principalResource = null;
+		try {
+			WebDavResource wellKnown = new WebDavResource(
+					new URI(protocol, null, host, port, contextPath, null, null),
+					serverInfo.getUserName(), serverInfo.getPassword(), serverInfo.isAuthPreemptive(), false);
+			principalResource = wellKnown.getPrincipal();
+		} catch (Exception e) {
+		}
+
+		if (principalResource == null) {
+			try {
+				String fallbackPath = url.getPath();
+				if (StringUtils.isEmpty(fallbackPath))
+					fallbackPath = "/";
+				
+				WebDavResource base = new WebDavResource(
+						new URI(protocol, null, host, port, fallbackPath, url.getQuery(), null),
+						serverInfo.getUserName(), serverInfo.getPassword(), serverInfo.isAuthPreemptive(), false);
+				principalResource = base.getPrincipal();
+			} catch (Exception e) {
+				throw new DavIncapableException("Couldn't determine context path");
+			}
+		}
+		
+		return principalResource;
 	}
 	
 	
@@ -161,20 +209,5 @@ public class ResourceDetection {
 			!resource.supportsMethod("REPORT"))
 			throw new DavIncapableException(context.getString(R.string.exception_incapable_resource));
 	}
-	
-	private String getPrincipalPath(WebDavResource base) throws DavException {
-		String principalPath = null;
-		try {
-			base.propfind(Mode.CURRENT_USER_PRINCIPAL);
-			principalPath = base.getCurrentUserPrincipal();
-		} catch (Exception e) {
-		}
-		
-		if (principalPath != null) {
-			Log.i(TAG, "Found principal path: " + principalPath);
-			return principalPath;
-		} else
-			throw new DavIncapableException(context.getString(R.string.error_principal_path));
-	}
-	
+
 }

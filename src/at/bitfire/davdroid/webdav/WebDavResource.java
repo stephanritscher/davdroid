@@ -40,7 +40,6 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpOptions;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ByteArrayEntity;
@@ -55,6 +54,7 @@ import at.bitfire.davdroid.LoggingInputStream;
 import at.bitfire.davdroid.URIUtils;
 import at.bitfire.davdroid.resource.Event;
 import at.bitfire.davdroid.webdav.DavProp.DavPropComp;
+import at.bitfire.davdroid.webdav.HttpPropfind.Mode;
 
 
 @ToString
@@ -110,10 +110,7 @@ public class WebDavResource {
 		this(baseURL, trailingSlash);
 		
 		// authenticate
-		client.getCredentialsProvider().setCredentials(
-			new AuthScope(location.getHost(), location.getPort()),
-			new UsernamePasswordCredentials(username, password)
-		);
+		client.getCredentialsProvider().setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
 		if (preemptive) {
 			Log.d(TAG, "Using preemptive authentication (not compatible with Digest auth)");
 			client.addRequestInterceptor(new PreemptiveAuthInterceptor(), 0);
@@ -141,41 +138,38 @@ public class WebDavResource {
 
 	/* feature detection */
 	
-	public String checkRedirection() throws ClientProtocolException, IOException {
+	public WebDavResource getPrincipal() throws ClientProtocolException, IOException {
 		Log.i(TAG, "Checking for redirection at " + location);
-
+		
 		URI uri = location;
 		boolean secure = "https".equalsIgnoreCase(uri.getScheme());
 		
 		for (int redirects = 0; redirects < MAX_REDIRECTS; redirects++) {
-			HttpHead head = new HttpHead(uri);
-			HttpResponse response = client.execute(head);
-			
-			StatusLine status = response.getStatusLine();
-			if (status.getStatusCode()/100 == 3) {
-				Header hdrLocation = response.getFirstHeader("Location");
-				if (hdrLocation != null) {
-					String location = hdrLocation.getValue();
-					if (location != null) {
-						Log.i(TAG, "Found redirection -> " + location);
-						try {
-							uri = new URI(location);
-							if (secure && !"https".equalsIgnoreCase(uri.getScheme())) {
-								Log.e(TAG, "Redirection from https:// to other URL scheme not allowed, ignoring");
-								break;
-							}
-							continue;
-						} catch (URISyntaxException e) {
-							Log.w(TAG, "Invalid redirection URL: " + location);
-						}
-					}
+			WebDavResource resource = new WebDavResource(this, uri);
+			try {
+				resource.propfind(Mode.CURRENT_USER_PRINCIPAL);
+				String principalPath = resource.getCurrentUserPrincipal();
+				if (principalPath != null) {
+					Log.d(TAG, "Found principal path: " + principalPath);
+					return new WebDavResource(resource, principalPath);
 				}
-				break;
-			} else {
-				String location = uri.toASCIIString();
-				Log.i(TAG, "Using " + location + " (doesn't redirect anymore)");
-				return location;
+				
+			} catch(RedirectionException e) {
+				try {
+					uri = new URI(e.getLocation());
+					if (secure && !"https".equalsIgnoreCase(uri.getScheme())) {
+						Log.e(TAG, "Redirection from https:// to other URL scheme not allowed, ignoring");
+						break;
+					}
+				} catch (URISyntaxException e1) {
+				}
+				// found new location, try again
+				continue;
+			} catch(Exception e) {
 			}
+
+			// invalid response, abort
+			break;
 		}
 		return null;
 	}
@@ -400,6 +394,16 @@ public class WebDavResource {
 	/* helpers */
 	
 	protected static void checkResponse(HttpResponse response) throws HttpException {
+		// redirection handling is only available for whole responses
+		int code = response.getStatusLine().getStatusCode();
+		if (code/100 == 3) {
+			String location = response.getFirstHeader("Location").getValue();
+			if (location == null)
+				location = "";
+			Log.d(TAG, "Received redirection to " + location);
+			throw new RedirectionException(code, location);
+		}
+		
 		checkResponse(response.getStatusLine());
 	}
 	

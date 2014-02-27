@@ -29,7 +29,7 @@ public class ServerInfo implements Serializable {
 	
 	private String errorMessage;
 	
-	@Getter @Setter private String baseURL;
+	@Getter @Setter private String providedURL;
 	private boolean calDAV, cardDAV;
 	private List<ResourceInfo>
 		addressBooks = new LinkedList<ResourceInfo>(),

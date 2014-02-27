@@ -104,7 +104,7 @@ public class QueryServerDialogFragment extends DialogFragment implements LoaderC
 				args.getString(EXTRA_PASSWORD),
 				args.getBoolean(EXTRA_AUTH_PREEMPTIVE)
 			);
-			serverInfo.setBaseURL(args.getString(EXTRA_BASE_URL));
+			serverInfo.setProvidedURL(args.getString(EXTRA_BASE_URL));
 
 			try {
 				ResourceDetection detector = new ResourceDetection(context);
