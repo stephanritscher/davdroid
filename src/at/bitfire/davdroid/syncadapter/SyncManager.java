@@ -12,9 +12,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import net.fortuna.ical4j.model.ValidationException;
-
-import org.apache.http.HttpException;
-
 import android.content.SyncResult;
 import android.util.Log;
 import at.bitfire.davdroid.resource.Event;
@@ -24,6 +21,8 @@ import at.bitfire.davdroid.resource.LocalStorageException;
 import at.bitfire.davdroid.resource.RecordNotFoundException;
 import at.bitfire.davdroid.resource.RemoteCollection;
 import at.bitfire.davdroid.resource.Resource;
+import at.bitfire.davdroid.webdav.DavException;
+import at.bitfire.davdroid.webdav.HttpException;
 import at.bitfire.davdroid.webdav.NotFoundException;
 import at.bitfire.davdroid.webdav.PreconditionFailedException;
 
@@ -42,7 +41,7 @@ public class SyncManager {
 	}
 
 	
-	public void synchronize(boolean manualSync, SyncResult syncResult) throws LocalStorageException, IOException, HttpException {
+	public void synchronize(boolean manualSync, SyncResult syncResult) throws LocalStorageException, IOException, HttpException, DavException {
 		// PHASE 1: push local changes to server
 //		Log.wtf(TAG, "phase 1");
 		int	deletedRemotely = pushDeleted(),
@@ -113,15 +112,20 @@ public class SyncManager {
 				try {
 					Resource res = local.findById(id, false);
 					if (res.getName() != null)	// is this resource even present remotely?
-						remote.delete(res);
+						try {
+							remote.delete(res);
+						} catch(NotFoundException e) {
+							Log.i(TAG, "Locally-deleted resource has already been removed from server");
+						} catch(PreconditionFailedException e) {
+							Log.i(TAG, "Locally-deleted resource has been changed on the server in the meanwhile");
+						}
+					
+					// always delete locally so that the record with the DELETED flag doesn't cause another deletion attempt
 					local.delete(res);
+					
 					count++;
-				} catch(NotFoundException e) {
-					Log.i(TAG, "Locally-deleted resource has already been removed from server");
-				} catch(PreconditionFailedException e) {
-					Log.i(TAG, "Locally-deleted resource has been changed on the server in the meanwhile");
 				} catch (RecordNotFoundException e) {
-					Log.e(TAG, "Couldn't read locally-deleted record", e);
+					Log.wtf(TAG, "Couldn't read locally-deleted record", e);
 				}
 		} finally {
 			local.commit();
@@ -145,7 +149,7 @@ public class SyncManager {
 				} catch (ValidationException e) {
 					Log.e(TAG, "Couldn't create entity for adding: " + e.toString());
 				} catch (RecordNotFoundException e) {
-					Log.e(TAG, "Couldn't read new record", e);
+					Log.wtf(TAG, "Couldn't read new record", e);
 				}
 		} finally {
 			local.commit();
@@ -178,7 +182,7 @@ public class SyncManager {
 		return count;
 	}
 	
-	private int pullNew(Resource[] resourcesToAdd) throws LocalStorageException, IOException, HttpException {
+	private int pullNew(Resource[] resourcesToAdd) throws LocalStorageException, IOException, HttpException, DavException {
 		int count = 0;
 		Log.i(TAG, "Fetching " + resourcesToAdd.length + " new remote resource(s)");
 		for (Resource[] resources : ArrayUtils.partition(resourcesToAdd, MAX_MULTIGET_RESOURCES))
@@ -191,7 +195,7 @@ public class SyncManager {
 		return count;
 	}
 	
-	private int pullChanged(Resource[] resourcesToUpdate) throws LocalStorageException, IOException, HttpException {
+	private int pullChanged(Resource[] resourcesToUpdate) throws LocalStorageException, IOException, HttpException, DavException {
 		int count = 0;
 		Log.i(TAG, "Fetching " + resourcesToUpdate.length + " updated remote resource(s)");
 		

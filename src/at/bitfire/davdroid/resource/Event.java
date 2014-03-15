@@ -138,6 +138,7 @@ public class Event extends Resource {
 		name = uid.replace("@", "_") + ".ics";
 	}
 
+	@Override
 	@SuppressWarnings("unchecked")
 	public void parseEntity(@NonNull InputStream entity) throws IOException, InvalidResourceException {
 		net.fortuna.ical4j.model.Calendar ical;
@@ -152,19 +153,20 @@ public class Event extends Resource {
 		}		
 		// event
 		ComponentList events = ical.getComponents(Component.VEVENT);
-		if (events.size() > 0) {
-			// event
-			parseEvent(events);
-			type = TYPE.VEVENT;
-		} else {
+		if (events == null || events.isEmpty()){
 			ComponentList todos = ical.getComponents(Component.VTODO);
 			if (todos.size() > 0) {
 				//task
 				parseTodo(todos);
 				type = TYPE.VTODO;
 			} else {
-				Log.wtf(TAG, "unkown component type");
+				throw new InvalidResourceException("No VEVENT or VTODO found");
 			}
+		}else{
+			VEvent event = (VEvent)events.get(0);
+			parseEvent(events);
+			type = TYPE.VEVENT;
+			
 		}
 		Log.i(TAG, "Parsed iCal: " + ical.toString());
 	}
@@ -378,10 +380,8 @@ public class Event extends Resource {
 		VEvent event = new VEvent();
 		PropertyList props = event.getProperties();
 
-		if (uid != null)
-
-		
-		props.add(dtEnd);
+		if(dtEnd!=null)
+			props.add(dtEnd);
 		addComonProps(props);
 
 		if (forPublic != null)
