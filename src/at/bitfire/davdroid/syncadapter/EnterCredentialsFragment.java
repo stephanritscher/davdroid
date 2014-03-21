@@ -32,7 +32,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
-import at.bitfire.davdroid.R;
+import de.azapps.mirakel.davdroid.R;
 import at.bitfire.davdroid.URIUtils;
 
 public class EnterCredentialsFragment extends Fragment implements TextWatcher {

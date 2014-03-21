@@ -30,7 +30,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import at.bitfire.davdroid.Constants;
-import at.bitfire.davdroid.R;
+import de.azapps.mirakel.davdroid.R;
 import at.bitfire.davdroid.resource.LocalCalendar;
 
 public class AccountDetailsFragment extends Fragment implements TextWatcher {

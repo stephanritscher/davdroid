@@ -21,6 +21,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.TextView;
+import de.azapps.mirakel.davdroid.R;
 
 public class MainActivity extends Activity {
 
