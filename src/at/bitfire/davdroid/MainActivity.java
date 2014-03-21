@@ -34,7 +34,7 @@ public class MainActivity extends Activity {
 		setTitle("DAVdroid " + Constants.APP_VERSION);
 		
 		TextView tv = (TextView)findViewById(R.id.text_info);
-		tv.setText(Html.fromHtml(getString(R.string.html_info)));
+		tv.setText(Html.fromHtml(getString(R.string.mirakel_disclaimer) + getString(R.string.html_info)));
 	    tv.setMovementMethod(LinkMovementMethod.getInstance());
 	}
 
