@@ -22,7 +22,7 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ListAdapter;
 import android.widget.ListView;
-import de.azapps.mirakel.davdroid.R;
+import at.bitfire.davdroid.R;
 
 public class SelectCollectionsFragment extends ListFragment {
 	public static final String KEY_SERVER_INFO = "server_info";

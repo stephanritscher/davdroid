@@ -19,7 +19,7 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.CheckedTextView;
 import android.widget.ListAdapter;
-import de.azapps.mirakel.davdroid.R;
+import at.bitfire.davdroid.R;
 
 public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter {
 	final static int TYPE_ADDRESS_BOOKS_HEADING = 0,
@@ -134,7 +134,7 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 		
 		String description = info.getDescription();
 		if (description == null)
-			description = info.getPath();
+			description = info.getURL();
 		
 		// FIXME escape HTML
 		view.setText(Html.fromHtml(title + "<br/>" + description));

@@ -10,7 +10,6 @@
  ******************************************************************************/
 package at.bitfire.davdroid.syncadapter;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,7 +22,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
-import at.bitfire.davdroid.Constants;
 import at.bitfire.davdroid.resource.CardDavAddressBook;
 import at.bitfire.davdroid.resource.LocalAddressBook;
 import at.bitfire.davdroid.resource.LocalCollection;
@@ -31,6 +29,7 @@ import at.bitfire.davdroid.resource.RemoteCollection;
 
 public class ContactsSyncAdapterService extends Service {
 	private static ContactsSyncAdapter syncAdapter;
+	
 
 	@Override @Synchronized
 	public void onCreate() {
@@ -39,32 +38,41 @@ public class ContactsSyncAdapterService extends Service {
 	}
 
 	@Override
+	public void onDestroy() {
+		syncAdapter.close();
+		syncAdapter = null;
+	}
+
+	@Override
 	public IBinder onBind(Intent intent) {
 		return syncAdapter.getSyncAdapterBinder();
 	}
+	
 
 	private static class ContactsSyncAdapter extends DavSyncAdapter {
 		private final static String TAG = "davdroid.ContactsSyncAdapter";
 
-		public ContactsSyncAdapter(Context context) {
+		
+		private ContactsSyncAdapter(Context context) {
 			super(context);
+			Log.i(TAG, "httpClient = " + httpClient);
 		}
 
 		@Override
 		protected Map<LocalCollection<?>, RemoteCollection<?>> getSyncPairs(Account account, ContentProviderClient provider) {
-			String addressBookPath = accountManager.getUserData(account, Constants.ACCOUNT_KEY_ADDRESSBOOK_PATH);
-			if (addressBookPath == null)
+			AccountSettings settings = new AccountSettings(getContext(), account);
+			String	userName = settings.getUserName(),
+					password = settings.getPassword();
+			boolean preemptive = settings.getPreemptiveAuth();
+
+			String addressBookURL = settings.getAddressBookURL();
+			if (addressBookURL == null)
 				return null;
 			
 			try {
-				LocalCollection<?> database = new LocalAddressBook(account, provider, accountManager);
-				
-				URI uri = new URI(accountManager.getUserData(account, Constants.ACCOUNT_KEY_BASE_URL)).resolve(addressBookPath);
-				RemoteCollection<?> dav = new CardDavAddressBook(
-					uri.toString(),
-					accountManager.getUserData(account, Constants.ACCOUNT_KEY_USERNAME),
-					accountManager.getPassword(account),
-					Boolean.parseBoolean(accountManager.getUserData(account, Constants.ACCOUNT_KEY_AUTH_PREEMPTIVE)));
+				LocalCollection<?> database = new LocalAddressBook(account, provider, settings);
+				Log.i(TAG, "httpClient 2 = " + httpClient);
+				RemoteCollection<?> dav = new CardDavAddressBook(httpClient, addressBookURL, userName, password, preemptive);
 				
 				Map<LocalCollection<?>, RemoteCollection<?>> map = new HashMap<LocalCollection<?>, RemoteCollection<?>>();
 				map.put(database, dav);

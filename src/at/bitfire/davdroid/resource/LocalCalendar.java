@@ -79,11 +79,10 @@ import at.bitfire.davdroid.syncadapter.ServerInfo;
 public class LocalCalendar extends LocalCollection<Event> {
 	private static final String TAG = "davdroid.LocalCalendar";
 
-	@Getter
-	protected long id;
-	@Getter
-	protected String path, cTag;
 
+	@Getter protected long id;
+	@Getter protected String url, cTag;
+	
 	protected static String COLLECTION_COLUMN_CTAG = Calendars.CAL_SYNC1;
 
 	private static Context ctx;
@@ -158,7 +157,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 		ContentValues values = new ContentValues();
 		values.put(Calendars.ACCOUNT_NAME, account.name);
 		values.put(Calendars.ACCOUNT_TYPE, account.type);
-		values.put(Calendars.NAME, info.getPath());
+		values.put(Calendars.NAME, info.getURL());
 		values.put(Calendars.CALENDAR_DISPLAY_NAME, info.getTitle());
 		values.put(Calendars.CALENDAR_COLOR, color);
 		values.put(Calendars.OWNER_ACCOUNT, account.name);
@@ -199,10 +198,10 @@ public class LocalCalendar extends LocalCollection<Event> {
 	}
 
 	public LocalCalendar(Account account, ContentProviderClient providerClient,
-			int id, String path, String cTag,Context context) throws RemoteException {
+			int id, String url, String cTag,Context context) throws RemoteException {
 		super(account, providerClient);
 		this.id = id;
-		this.path = path;
+		this.url = url;
 		this.cTag = cTag;
 		ctx=context;
 	}

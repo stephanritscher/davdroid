@@ -10,48 +10,55 @@
  ******************************************************************************/
 package at.bitfire.davdroid.webdav;
 
-import org.apache.http.client.params.HttpClientParams;
-import org.apache.http.conn.scheme.Scheme;
-import org.apache.http.conn.scheme.SchemeRegistry;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.CoreProtocolPNames;
-import org.apache.http.params.HttpConnectionParams;
-import org.apache.http.params.HttpParams;
-
 import at.bitfire.davdroid.Constants;
+import ch.boye.httpclientandroidlib.client.config.RequestConfig;
+import ch.boye.httpclientandroidlib.config.Registry;
+import ch.boye.httpclientandroidlib.config.RegistryBuilder;
+import ch.boye.httpclientandroidlib.conn.socket.ConnectionSocketFactory;
+import ch.boye.httpclientandroidlib.conn.socket.PlainConnectionSocketFactory;
+import ch.boye.httpclientandroidlib.impl.client.CloseableHttpClient;
+import ch.boye.httpclientandroidlib.impl.client.HttpClients;
+import ch.boye.httpclientandroidlib.impl.conn.ManagedHttpClientConnectionFactory;
+import ch.boye.httpclientandroidlib.impl.conn.PoolingHttpClientConnectionManager;
 
-// see AndroidHttpClient
-
-
-public class DavHttpClient extends DefaultHttpClient {
-	private DavHttpClient(HttpParams params) {
-		super(params);
+public class DavHttpClient {
+	
+	private final static RequestConfig defaultRqConfig;
+	private final static Registry<ConnectionSocketFactory> socketFactoryRegistry;
+		
+	static {
+		socketFactoryRegistry =	RegistryBuilder.<ConnectionSocketFactory> create()
+				.register("http", PlainConnectionSocketFactory.getSocketFactory())
+				.register("https", TlsSniSocketFactory.INSTANCE)
+				.build();
+		
+		// use request defaults from AndroidHttpClient
+		defaultRqConfig = RequestConfig.copy(RequestConfig.DEFAULT)
+				.setConnectTimeout(20*1000)
+				.setSocketTimeout(20*1000)
+				.setStaleConnectionCheckEnabled(false)
+				.build();
+		
+		// enable logging
+		ManagedHttpClientConnectionFactory.INSTANCE.wirelog.enableDebug(true);
+		ManagedHttpClientConnectionFactory.INSTANCE.log.enableDebug(true);
 	}
-	
-	
-	public static DefaultHttpClient getDefault() {
-		HttpParams params = new BasicHttpParams();
-		params.setParameter(CoreProtocolPNames.USER_AGENT, "DAVdroid/" + Constants.APP_VERSION);
+
+
+	public static CloseableHttpClient create() {
 		
-		// use defaults of AndroidHttpClient
-		HttpConnectionParams.setConnectionTimeout(params, 20 * 1000);
-		HttpConnectionParams.setSoTimeout(params, 20 * 1000);
-		HttpConnectionParams.setSocketBufferSize(params, 8192);
-		HttpConnectionParams.setStaleCheckingEnabled(params, false);
+		PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+		// limits per DavHttpClient (= per DavSyncAdapter extends AbstractThreadedSyncAdapter)
+		connectionManager.setMaxTotal(2);				// max.  2 connections in total
+		connectionManager.setDefaultMaxPerRoute(2);		// max.  2 connections per host
 		
-		// don't allow redirections
-		HttpClientParams.setRedirecting(params, false);
-		
-		DavHttpClient httpClient = new DavHttpClient(params);
-		
-		// use our own, SNI-capable LayeredSocketFactory for https://
-	    SchemeRegistry schemeRegistry = httpClient.getConnectionManager().getSchemeRegistry();
-	    schemeRegistry.register(new Scheme("https", new TlsSniSocketFactory(), 443));
-		
-		// allow gzip compression
-		GzipDecompressingEntity.enable(httpClient);
-		return httpClient;
+		return HttpClients.custom()
+				.useSystemProperties()
+				.setConnectionManager(connectionManager)
+				.setDefaultRequestConfig(defaultRqConfig)
+				.setUserAgent("DAVdroid/" + Constants.APP_VERSION)
+				.disableCookieManagement()
+				.build();
 	}
-	
+
 }
