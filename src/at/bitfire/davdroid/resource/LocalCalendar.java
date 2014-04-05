@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -529,21 +530,24 @@ public class LocalCalendar extends LocalCollection<Event> {
 				e.setSummary(cursor.getString(0));
 				e.setLocation(cursor.getString(1));
 				e.setDescription(cursor.getString(2));
-				if (!cursor.isNull(3))
-					e.setDue(cursor.getLong(3), null);
+				if (!cursor.isNull(3)){
+					//Mirakel saves times in utc and transforms this dates to the current timezone
+					e.setDue(cursor.getLong(3), TimeZone.getDefault().getID());
+				}
+				
 				// status
 				switch (cursor.getInt(4)) {
-				case 2:// Tasks.STATUS_COMPLETED:
+				case Tasks.STATUS_COMPLETED:
 					e.setStatus(Status.VTODO_COMPLETED);
 					break;
-				case 3:// Tasks.STATUS_CANCELLED:
+				case Tasks.STATUS_CANCELLED:
 					e.setStatus(Status.VTODO_CANCELLED);
 					break;
-				case 1:// Tasks.STATUS_IN_PROCESS:
+				case Tasks.STATUS_IN_PROCESS:
 					e.setStatus(Status.VTODO_IN_PROCESS);
 					break;
 				default:
-				case 0:// Tasks.STATUS_NEEDS_ACTION:
+				case Tasks.STATUS_NEEDS_ACTION:
 					e.setStatus(Status.VTODO_NEEDS_ACTION);
 					break;
 
