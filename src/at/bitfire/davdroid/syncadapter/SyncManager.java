@@ -84,8 +84,7 @@ public class SyncManager {
 				remotelyAdded.add(remoteResource);
 			}
 		}
-		
-//		Log.wtf(TAG, "phase 3");
+
 		// PHASE 3: pull remote changes from server
 		syncResult.stats.numInserts = pullNew(remotelyAdded.toArray(new Resource[0]));
 		syncResult.stats.numUpdates = pullChanged(remotelyUpdated.toArray(new Resource[0]));

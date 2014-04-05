@@ -127,15 +127,16 @@ public class Event extends Resource {
 
 	
 	@Override
-	public void generateUID() {
-		UidGenerator generator = new UidGenerator(new SimpleHostInfo(DavSyncAdapter.getAndroidID()), String.valueOf(android.os.Process.myPid()));
-		uid = generator.generateUid().getValue();
+	public void generateName() {
+		//generateUID();
+		name = uid.replace("@", "_") + ".ics";
 	}
 	
-	
-	@Override
-	public void generateName() {
-		name = uid.replace("@", "_") + ".ics";
+
+
+	protected void generateUID() {
+		UidGenerator generator = new UidGenerator(new SimpleHostInfo(DavSyncAdapter.getAndroidID()), String.valueOf(android.os.Process.myPid()));
+		uid = generator.generateUid().getValue();
 	}
 
 	@Override
@@ -218,6 +219,7 @@ public class Event extends Resource {
 		priority=todo.getPriority();
 		completed=todo.getPercentComplete();
 		due=todo.getDue();
+		validateTimeZone(due);
 		Log.d(TAG,"parsed VTODO");
 
 	}
