@@ -10,6 +10,7 @@
  ******************************************************************************/
 package at.bitfire.davdroid.resource;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.ParseException;
@@ -271,31 +272,31 @@ public class LocalCalendar extends LocalCollection<Event> {
 				//throw new LocalStorageException(e);
 				return null;
 			} 
-		}else{
-			for(Uri a:tasksURI(account)){
-				try {
-					cursor = ctx.getContentResolver().query(a,
-							new String[] { Tasks._SYNC_ID, Tasks.SYNC1 }, null, null, null);
-					Event e=resolveCursor(localID, populate, t, cursor);
-					if(e!=null)
-						return e;
-				} catch (Exception e) {
-					// Eat its
-				} 
-			}
+		}
+		for(Uri a:tasksURI(account)){
+			try {
+				cursor = ctx.getContentResolver().query(a,
+						new String[] { Tasks._SYNC_ID, Tasks.SYNC1 }, Tasks._ID+"=?", new String[]{localID+""}, null);
+				Event e=resolveCursor(localID, populate, t, cursor);
+				if(e!=null)
+					return e;
+			} catch (Exception e) {
+				// Eat its
+			} 
 		}
 		throw new LocalStorageException();
 		
 	}
 
 	private Event resolveCursor(long localID, boolean populate, TYPE t, Cursor cursor) throws RemoteException, RecordNotFoundException {
-		if (cursor != null && cursor.moveToNext()) {
+		if (cursor != null && cursor.moveToFirst()) {
 			Event resource = new Event(localID, cursor.getString(0), cursor.getString(1),t);
-			if (populate)
+			if (populate){
 				populate(resource);
+			}			
 			return resource;
-		} else
-			throw new RecordNotFoundException();
+		}
+		throw new RecordNotFoundException();
 	}
 
 	@Override
@@ -387,14 +388,14 @@ public class LocalCalendar extends LocalCollection<Event> {
 		
 	}
 
-	private long[] longArrayFromList(List<Long> deleted) {
+	private static long[] longArrayFromList(List<Long> deleted) {
 		long[] ret=new long[deleted.size()];
 		for(int i=0;i<ret.length;i++)
 			ret[i]=deleted.get(i);
 		return ret;
 	}
 
-	private List<Long> longArrayToList(long[] t) {
+	private static List<Long> longArrayToList(long[] t) {
 		List<Long> list = new ArrayList<Long>();
 		for(long l:t)
 			list.add(l);
@@ -516,15 +517,13 @@ public class LocalCalendar extends LocalCollection<Event> {
 
 	private boolean populateToDo(Event e) throws RemoteException {
 		for (Uri uri : tasksURI(account)) {
-			Cursor cursor = ctx.getContentResolver().query(
-					ContentUris.withAppendedId(uri,
-							e.getLocalID()),
+			Cursor cursor = ctx.getContentResolver().query(uri,
 					new String[] {
 					/* 0 */Tasks.TITLE, Tasks.LOCATION, Tasks.DESCRIPTION,
 							Tasks.DUE, Tasks.STATUS, Tasks.PRIORITY, Tasks._ID,
 							Tasks.ACCOUNT_NAME, Tasks._SYNC_ID, Tasks.SYNC1, Tasks.PERCENT_COMPLETE },
-					null, null, null);
-			if (cursor != null && cursor.moveToNext()) {
+					Tasks._ID+"=?", new String[]{e.getLocalID()+""}, null);
+			if (cursor != null && cursor.moveToFirst()) {
 				e.setUid(cursor.getString(8));
 
 				e.setSummary(cursor.getString(0));
@@ -534,7 +533,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 					//Mirakel saves times in utc and transforms this dates to the current timezone
 					e.setDue(cursor.getLong(3), TimeZone.getDefault().getID());
 				}
-				
 				// status
 				switch (cursor.getInt(4)) {
 				case Tasks.STATUS_COMPLETED:
