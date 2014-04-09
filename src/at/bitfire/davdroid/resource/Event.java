@@ -7,6 +7,7 @@
  * 
  * Contributors:
  *     Richard Hirner (bitfire web engineering) - initial API and implementation
+ *     weiznich 	  (Mirakel)- todo implementation
  ******************************************************************************/
 package at.bitfire.davdroid.resource;
 
