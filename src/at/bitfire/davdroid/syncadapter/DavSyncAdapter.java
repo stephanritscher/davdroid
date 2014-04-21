@@ -94,10 +94,10 @@ public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter impleme
 		else{
 			Log.d(TAG,"has collection "+syncCollections.size());
 			try {
-				for (Map.Entry<LocalCollection<?>, RemoteCollection<?>> entry : syncCollections.entrySet()){
-					Log.d(TAG,"setup syncmanager");
 				// prevent httpClient shutdown until we're ready
 				httpClientLock.readLock().lock();
+				for (Map.Entry<LocalCollection<?>, RemoteCollection<?>> entry : syncCollections.entrySet()){
+					Log.d(TAG,"setup syncmanager");				
 					new SyncManager(entry.getKey(), entry.getValue()).synchronize(extras.containsKey(ContentResolver.SYNC_EXTRAS_MANUAL), syncResult);
 				}
 				

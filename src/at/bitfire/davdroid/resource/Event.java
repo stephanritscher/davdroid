@@ -129,7 +129,7 @@ public class Event extends Resource {
 	
 	@Override
 	public void generateName() {
-		//generateUID();
+		generateUID();
 		name = uid.replace("@", "_") + ".ics";
 	}
 	
@@ -403,14 +403,6 @@ public class Event extends Resource {
 			ical.getComponents().add(tzStart.getVTimeZone());
 		if (tzEnd != null && tzEnd != tzStart)
 			ical.getComponents().add(tzEnd.getVTimeZone());
-		CalendarOutputter output = new CalendarOutputter(false);
-		ByteArrayOutputStream os = new ByteArrayOutputStream();
-		try {
-			output.output(ical, os);
-		} catch (ValidationException e) {
-			Log.e(TAG, "Generated invalid iCalendar");
-		}
-//		return os;
 	}
 
 	public long getDtStartInMillis() {

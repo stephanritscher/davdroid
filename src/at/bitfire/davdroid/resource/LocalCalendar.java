@@ -330,31 +330,26 @@ public class LocalCalendar extends LocalCollection<Event> {
 
 	@Override
 	public Event findByRemoteName(String remoteName, boolean populate) throws LocalStorageException {
-		try {
-			@Cleanup Cursor cursor = providerClient.query(entriesURI(),
-					new String[] { entryColumnID(), entryColumnRemoteName(), entryColumnETag() },
-					entryColumnRemoteName() + "=?", new String[] { remoteName }, null);
-			Event resource=null;
-			if (cursor != null && cursor.moveToNext()) {
-				 resource= newResource(cursor.getLong(0), cursor.getString(1), cursor.getString(2));
-			} else{
-				for (Uri uri : tasksURI(account)) {
-					cursor = ctx.getContentResolver()
-							.query(uri,
-									new String[] { Tasks._ID, Tasks._SYNC_ID,
-											Tasks.SYNC1 }, /*
-															 * Tasks . LIST_ID +
-															 * "=? AND " +
-															 */
-									Tasks._SYNC_ID + "='?'",
-									new String[] { /*
-													 * String.valueOf(id) ,
-													 */remoteName }, null);
-					if (cursor != null && cursor.moveToNext()) {
-						resource= new Event(cursor.getLong(0), cursor.getString(1),
-								cursor.getString(2), TYPE.VTODO);
-						break;
-					}
+			Event resource= super.findByRemoteName(remoteName, populate);
+			if (resource!=null) {
+				 return resource;
+			}
+			for (Uri uri : tasksURI(account)) {
+				@Cleanup Cursor cursor = ctx.getContentResolver()
+						.query(uri,
+								new String[] { Tasks._ID, Tasks._SYNC_ID,
+										Tasks.SYNC1 }, /*
+														 * Tasks . LIST_ID +
+														 * "=? AND " +
+														 */
+								Tasks._SYNC_ID + "='?'",
+								new String[] { /*
+												 * String.valueOf(id) ,
+												 */remoteName }, null);
+				if (cursor != null && cursor.moveToNext()) {
+					resource= new Event(cursor.getLong(0), cursor.getString(1),
+							cursor.getString(2), TYPE.VTODO);
+					break;
 				}
 			}
 			if(resource==null)
@@ -362,9 +357,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 			if (populate)
 				populate(resource);
 			return resource;
-		} catch(RemoteException ex) {
-			throw new LocalStorageException(ex);
-		}
 	}
 
 
@@ -1009,11 +1001,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 		
 		if (event.getForPublic() != null)
 			builder = builder.withValue(Events.ACCESS_LEVEL, event.getForPublic() ? Events.ACCESS_PUBLIC : Events.ACCESS_PRIVATE);
-
-		if (event.getForPublic() != null)
-			builder = builder.withValue(Events.ACCESS_LEVEL, event
-					.getForPublic() ? Events.ACCESS_PUBLIC
-					: Events.ACCESS_PRIVATE);
 		return builder;
 	}
 
