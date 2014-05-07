@@ -43,19 +43,13 @@ public class SyncManager {
 	
 	public void synchronize(boolean manualSync, SyncResult syncResult) throws LocalStorageException, IOException, HttpException, DavException {
 		// PHASE 1: push local changes to server
-//		Log.wtf(TAG, "phase 1");
-		int	deletedRemotely = pushDeleted(),
-			addedRemotely = pushNew(),
-			updatedRemotely = pushDirty();
-//		Log.wtf(TAG, "phase 2a");
+		int	deletedRemotely = pushDeleted();
+		int	addedRemotely = pushNew();
+		int updatedRemotely = pushDirty();
 		syncResult.stats.numEntries = deletedRemotely + addedRemotely + updatedRemotely;
 		
 		// PHASE 2A: check if there's a reason to do a sync with remote (= forced sync or remote CTag changed)
-		boolean fetchCollection = syncResult.stats.numEntries > 0;
-		if (manualSync) {
-//			Log.i(TAG, "Synchronization forced");
-			fetchCollection = true;
-		}
+		boolean fetchCollection = syncResult.stats.numEntries > 0||manualSync;
 		if (!fetchCollection) {
 			String	currentCTag = remote.getCTag(),
 					lastCTag = local.getCTag();
@@ -63,16 +57,16 @@ public class SyncManager {
 			if (currentCTag == null || !currentCTag.equals(lastCTag))
 				fetchCollection = true;
 		}
-//		Log.wtf(TAG, "phase 2b");
 		
 		if (!fetchCollection) {
 			Log.i(TAG, "No local changes and CTags match, no need to sync");
 			return;
 		}
+		
 		// PHASE 2B: detect details of remote changes
 		Log.i(TAG, "Fetching remote resource list");
-		Set<Resource>	remotelyAdded = new HashSet<Resource>(),
-						remotelyUpdated = new HashSet<Resource>();
+		Set<Resource>	remotelyAdded = new HashSet<Resource>();
+		Set<Resource>	remotelyUpdated = new HashSet<Resource>();
 		
 		Resource[] remoteResources = remote.getMemberETags();
 		for (Resource remoteResource : remoteResources) {
