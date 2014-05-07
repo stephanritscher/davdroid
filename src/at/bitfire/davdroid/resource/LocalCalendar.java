@@ -330,11 +330,18 @@ public class LocalCalendar extends LocalCollection<Event> {
 
 	@Override
 	public Event findByRemoteName(String remoteName, boolean populate) throws LocalStorageException {
-			Event resource= super.findByRemoteName(remoteName, populate);
+			Event resource;
+			try {
+				resource = super.findByRemoteName(remoteName, populate);
+			} catch (Exception e) {
+				//eat it
+				resource=null;
+			}
 			if (resource!=null) {
 				 return resource;
 			}
 			for (Uri uri : tasksURI(account)) {
+				
 				@Cleanup Cursor cursor = ctx.getContentResolver()
 						.query(uri,
 								new String[] { Tasks._ID, Tasks._SYNC_ID,
