@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
 
 import lombok.Cleanup;
 import lombok.Getter;
+import net.fortuna.ical4j.model.DateTime;
 import net.fortuna.ical4j.model.Dur;
 import net.fortuna.ical4j.model.Parameter;
 import net.fortuna.ical4j.model.ParameterList;
@@ -35,6 +36,7 @@ import net.fortuna.ical4j.model.parameter.PartStat;
 import net.fortuna.ical4j.model.parameter.Role;
 import net.fortuna.ical4j.model.property.Action;
 import net.fortuna.ical4j.model.property.Attendee;
+import net.fortuna.ical4j.model.property.Completed;
 import net.fortuna.ical4j.model.property.Description;
 import net.fortuna.ical4j.model.property.Duration;
 import net.fortuna.ical4j.model.property.ExDate;
@@ -536,6 +538,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 				switch (cursor.getInt(4)) {
 				case Tasks.STATUS_COMPLETED:
 					e.setStatus(Status.VTODO_COMPLETED);
+					e.setDateCompleted(new Completed(new DateTime(new Date())));
 					break;
 				case Tasks.STATUS_CANCELLED:
 					e.setStatus(Status.VTODO_CANCELLED);
@@ -930,7 +933,10 @@ public class LocalCalendar extends LocalCollection<Event> {
 		if(todo.getCompleted()!=null){
 			builder.withValue(Tasks.PERCENT_COMPLETE, todo.getCompleted().getPercentage());
 		}
-		
+		if(todo.getDateCompleted()!=null){
+			builder.withValue(Tasks.STATUS, Tasks.STATUS_COMPLETED);
+		}
+			
 
 		return builder;
 	}

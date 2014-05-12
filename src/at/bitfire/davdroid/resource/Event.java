@@ -96,6 +96,7 @@ public class Event extends Resource {
 
 	@Getter	@Setter	private TYPE type;
 	@Getter @Setter private boolean opaque;	
+	@Getter @Setter private Completed dateCompleted;
 
 
 	@Getter @Setter private Organizer organizer;
@@ -114,6 +115,7 @@ public class Event extends Resource {
 	@Getter	@Setter private PercentComplete completed;
 
 	@Getter	@Setter private Due due;
+
 
 
 	public Event(String name, String ETag, TYPE type) {
@@ -194,6 +196,7 @@ public class Event extends Resource {
 		rdate = (RDate) todo.getProperty(Property.RDATE);
 		exrule = (ExRule) todo.getProperty(Property.EXRULE);
 		exdate = (ExDate) todo.getProperty(Property.EXDATE);
+		dateCompleted=todo.getDateCompleted();
 
 		if (todo.getSummary() != null)
 			summary = todo.getSummary().getValue();
@@ -335,6 +338,8 @@ public class Event extends Resource {
 			props.add(due);
 		if(completed!=null)
 			props.add(completed);
+		if(dateCompleted!=null)
+			props.add(dateCompleted);
 		
 		if(status.getValue().equals(Status.VTODO_COMPLETED)){
 			props.add(new Completed(new DateTime(new java.util.Date())));
