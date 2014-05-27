@@ -905,7 +905,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 				.withValue(Tasks.TITLE, todo.getSummary())
 				.withValue(Tasks.SYNC1, todo.getETag())
 				.withValue(Tasks._SYNC_ID, todo.getName());
-		if(todo.getStatus()!=null){
+		if(todo.getStatus()!=null&&todo.getDateCompleted()==null){
 			Status status=todo.getStatus();
 			if(status==Status.VTODO_CANCELLED){
 				builder.withValue(Tasks.STATUS, Tasks.STATUS_CANCELLED);
