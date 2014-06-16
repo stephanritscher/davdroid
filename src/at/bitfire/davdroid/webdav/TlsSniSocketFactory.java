@@ -8,11 +8,14 @@
 package at.bitfire.davdroid.webdav;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
@@ -66,7 +69,19 @@ public class TlsSniSocketFactory implements LayeredConnectionSocketFactory {
 		
 		// we'll rather use an SSLSocket directly
 		plain.close();
-		
+
+		// create a layered SSL socket, but don't do hostname/certificate verification yet
+		for (Field f : SSLCertificateSocketFactory.class.getDeclaredFields()) {
+			if (f.getName().equals("mKeyManagers")) {
+				try {
+					f.setAccessible(true);
+					KeyManager[] km = (KeyManager[]) f.get(sslSocketFactory);
+					Log.d(TAG, "Key Managers " + Arrays.toString(km));
+				} catch (Exception e) {
+					Log.e(TAG, "Could not get key managers", e);
+				}
+			}
+		}
 		// create a plain SSL socket, but don't do hostname/certificate verification yet
 		SSLSocket ssl = (SSLSocket)sslSocketFactory.createSocket(remoteAddr.getAddress(), host.getPort());
 		
@@ -120,4 +135,7 @@ public class TlsSniSocketFactory implements LayeredConnectionSocketFactory {
 				" using " + session.getCipherSuite());
 	}
 	
+	public void setKeyManagers(KeyManager[] kms) {
+		sslSocketFactory.setKeyManagers(kms);
+	}
 }

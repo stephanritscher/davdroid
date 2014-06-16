@@ -22,6 +22,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.CalendarContract;
 import android.provider.CalendarContract.Calendars;
+import android.util.Base64;
 import android.util.Log;
 
 public class AccountSettings {
@@ -35,7 +36,9 @@ public class AccountSettings {
 		KEY_AUTH_PREEMPTIVE = "auth_preemptive",
 		
 		KEY_ADDRESSBOOK_URL = "addressbook_url",
-		KEY_ADDRESSBOOK_CTAG = "addressbook_ctag";
+		KEY_ADDRESSBOOK_CTAG = "addressbook_ctag",
+		
+		KEY_CLIENT_KEYSTORE = "client_keystore";
 	
 	Context context;
 	AccountManager accountManager;
@@ -65,6 +68,9 @@ public class AccountSettings {
 		bundle.putString(KEY_SETTINGS_VERSION, String.valueOf(CURRENT_VERSION));
 		bundle.putString(KEY_USERNAME, serverInfo.getUserName());
 		bundle.putString(KEY_AUTH_PREEMPTIVE, Boolean.toString(serverInfo.isAuthPreemptive()));
+		if (serverInfo.getKeyStore() != null) {
+			bundle.putString(KEY_CLIENT_KEYSTORE, Base64.encodeToString(serverInfo.getKeyStore(), Base64.DEFAULT));
+		}
 		for (ServerInfo.ResourceInfo addressBook : serverInfo.getAddressBooks())
 			if (addressBook.isEnabled()) {
 				bundle.putString(KEY_ADDRESSBOOK_URL, addressBook.getURL());
@@ -88,6 +94,14 @@ public class AccountSettings {
 		return Boolean.parseBoolean(accountManager.getUserData(account, KEY_AUTH_PREEMPTIVE));
 	}
 	
+	public byte[] getKeyStore() {
+		String data = accountManager.getUserData(account, KEY_CLIENT_KEYSTORE);
+		if (data == null) {
+			return null;
+		} else {
+			return Base64.decode(data, Base64.DEFAULT);
+		}
+	}
 	
 	// address book (CardDAV) settings
 	

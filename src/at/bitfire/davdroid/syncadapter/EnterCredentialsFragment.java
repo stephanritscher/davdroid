@@ -7,22 +7,40 @@
  ******************************************************************************/
 package at.bitfire.davdroid.syncadapter;
 
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.KeyFactory;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Collection;
 
 import org.apache.commons.lang.StringUtils;
 
 import android.app.DialogFragment;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
@@ -34,13 +52,14 @@ import android.widget.TextView;
 import at.bitfire.davdroid.R;
 import at.bitfire.davdroid.URIUtils;
 
-public class EnterCredentialsFragment extends Fragment implements TextWatcher {
+public class EnterCredentialsFragment extends Fragment implements TextWatcher, OnClickListener {
+	private final static String TAG = "davdroid.EnterCredentialsFragment";
 	String protocol;
 	
 	TextView textHttpWarning;
-	EditText editBaseURL, editUserName, editPassword;
+	EditText editBaseURL, editUserName, editPassword, editKeyFile;
 	CheckBox checkboxPreemptive;
-	Button btnNext;
+	Button btnNext, btnChoose;
 	
 
 	@Override
@@ -74,6 +93,12 @@ public class EnterCredentialsFragment extends Fragment implements TextWatcher {
 		
 		editPassword = (EditText) v.findViewById(R.id.password);
 		editPassword.addTextChangedListener(this);
+		
+		editKeyFile = (EditText) v.findViewById(R.id.keyfile);
+		editKeyFile.addTextChangedListener(this);
+
+		btnChoose = (Button) v.findViewById(R.id.choose);
+		btnChoose.setOnClickListener(this);
 		
 		checkboxPreemptive = (CheckBox) v.findViewById(R.id.auth_preemptive);
 		
@@ -110,6 +135,28 @@ public class EnterCredentialsFragment extends Fragment implements TextWatcher {
 		args.putString(QueryServerDialogFragment.EXTRA_USER_NAME, editUserName.getText().toString());
 		args.putString(QueryServerDialogFragment.EXTRA_PASSWORD, editPassword.getText().toString());
 		args.putBoolean(QueryServerDialogFragment.EXTRA_AUTH_PREEMPTIVE, checkboxPreemptive.isChecked());
+		File keyFile = new File(editKeyFile.getText().toString());
+		if (keyFile.exists()) {
+			byte[] key = new byte[(int) keyFile.length()];
+			InputStream in = null;
+			try {
+				in = new BufferedInputStream(new FileInputStream(keyFile));
+				in.read(key);
+			} catch (IOException e) {
+				Log.e(TAG, "Could not load key file: " + e);
+			} finally {
+				if (in != null) {
+					try {
+						in.close();
+					} catch (IOException e) {
+						Log.e(TAG, "Could not close key file: " + e);
+					}
+				}
+			}
+			args.putByteArray(QueryServerDialogFragment.EXTRA_KEYSTORE, key);
+		} else {
+			Log.e(TAG, "Key file '" + keyFile.toString() + "' not found.");
+		}
 		
 		DialogFragment dialog = new QueryServerDialogFragment();
 		dialog.setArguments(args);
@@ -149,5 +196,19 @@ public class EnterCredentialsFragment extends Fragment implements TextWatcher {
 
 	@Override
 	public void afterTextChanged(Editable s) {
+	}
+
+	@Override
+	public void onClick(View v) {
+		Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+	    intent.setType("file/*");
+		startActivityForResult(intent, 1);
+	}
+	
+	@Override
+	public void onActivityResult(int requestCode, int resultCode, Intent data) {
+		if (requestCode == 1) {
+			editKeyFile.setText(data.getData().getPath());
+		}
 	}
 }

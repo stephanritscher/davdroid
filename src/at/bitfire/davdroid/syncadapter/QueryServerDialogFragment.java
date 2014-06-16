@@ -40,7 +40,8 @@ public class QueryServerDialogFragment extends DialogFragment implements LoaderC
 		EXTRA_BASE_URL = "base_uri",
 		EXTRA_USER_NAME = "user_name",
 		EXTRA_PASSWORD = "password",
-		EXTRA_AUTH_PREEMPTIVE = "auth_preemptive";
+		EXTRA_AUTH_PREEMPTIVE = "auth_preemptive",
+		EXTRA_KEYSTORE = "keystore";
 	
 	ProgressBar progressBar;
 	
@@ -108,11 +109,12 @@ public class QueryServerDialogFragment extends DialogFragment implements LoaderC
 				args.getString(EXTRA_BASE_URL),
 				args.getString(EXTRA_USER_NAME),
 				args.getString(EXTRA_PASSWORD),
-				args.getBoolean(EXTRA_AUTH_PREEMPTIVE)
+				args.getBoolean(EXTRA_AUTH_PREEMPTIVE),
+				args.getByteArray(EXTRA_KEYSTORE)
 			);
 			
 			// disable compression and enable network logging for debugging purposes 
-			CloseableHttpClient httpClient = DavHttpClient.create(true, true);
+			CloseableHttpClient httpClient = DavHttpClient.create(true, true, serverInfo.getKeyStore(), serverInfo.getPassword());
 			
 			try {
 				// (1/5) detect capabilities
