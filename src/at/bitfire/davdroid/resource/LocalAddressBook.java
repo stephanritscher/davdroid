@@ -820,8 +820,8 @@ public class LocalAddressBook extends LocalCollection<Contact> {
 
 	protected Builder buildAddress(Builder builder, Address address) {
 		/*	street po.box (extended)
-		 *	region
 		 *	postal code city
+		 *	region
 		 *	country
 		 */
 		String formattedAddress = address.getLabel();
@@ -832,10 +832,12 @@ public class LocalAddressBook extends LocalCollection<Contact> {
 			List<String> lines = new LinkedList<String>();
 			if (lineStreet != null)
 				lines.add(lineStreet);
-			if (address.getRegion() != null && !address.getRegion().isEmpty())
-				lines.add(address.getRegion());
 			if (lineLocality != null)
 				lines.add(lineLocality);
+			if (address.getRegion() != null && !address.getRegion().isEmpty())
+				lines.add(address.getRegion());
+			if (address.getCountry() != null && !address.getCountry().isEmpty())
+				lines.add(address.getCountry());
 			
 			formattedAddress = StringUtils.join(lines, "\n");
 		}
