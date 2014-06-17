@@ -8,29 +8,20 @@
 package at.bitfire.davdroid.syncadapter;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.KeyFactory;
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateFactory;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Collection;
 
 import org.apache.commons.lang.StringUtils;
 
+import android.app.Activity;
 import android.app.DialogFragment;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -200,14 +191,17 @@ public class EnterCredentialsFragment extends Fragment implements TextWatcher, O
 
 	@Override
 	public void onClick(View v) {
-		Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-	    intent.setType("file/*");
-		startActivityForResult(intent, 1);
+		if (v.getId() == R.id.choose) {
+			Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+		    intent.setType("file/*");
+		    intent.addCategory(Intent.CATEGORY_OPENABLE);
+			startActivityForResult(Intent.createChooser(intent, getString(R.string.select_keyfile)), 1);
+		}
 	}
 	
 	@Override
 	public void onActivityResult(int requestCode, int resultCode, Intent data) {
-		if (requestCode == 1) {
+		if (requestCode == 1 && resultCode == Activity.RESULT_OK) {
 			editKeyFile.setText(data.getData().getPath());
 		}
 	}

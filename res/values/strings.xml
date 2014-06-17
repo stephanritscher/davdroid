@@ -124,5 +124,6 @@
     <string name="network_logging_disabled">Network traffic is not being logged</string>
     <string name="report_an_issue">Report an issue</string>
     <string name="keyfile">Keyfile</string>
+    <string name="select_keyfile">Select keyfile</string>
 
 </resources>
