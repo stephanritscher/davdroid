@@ -23,6 +23,7 @@ public class ServerInfo implements Serializable {
 	final private String userName, password;
 	final boolean authPreemptive;
 	final private byte[] keyStore;
+	final private String keyAlias;
 	
 	private String errorMessage;
 	

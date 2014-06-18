@@ -7,22 +7,12 @@
  ******************************************************************************/
 package at.bitfire.davdroid.syncadapter;
 
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
-import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.KeyStoreBuilderParameters;
-import javax.net.ssl.SSLContext;
-
 import lombok.Getter;
-
-import org.apache.http.HttpStatus;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -44,6 +34,8 @@ import at.bitfire.davdroid.resource.RemoteCollection;
 import at.bitfire.davdroid.webdav.DavException;
 import at.bitfire.davdroid.webdav.DavHttpClient;
 import at.bitfire.davdroid.webdav.HttpException;
+import at.bitfire.davdroid.webdav.TlsSniSocketFactory;
+import ch.boye.httpclientandroidlib.HttpStatus;
 import ch.boye.httpclientandroidlib.impl.client.CloseableHttpClient;
 
 public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter implements Closeable {
@@ -117,11 +109,14 @@ public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter impleme
 			SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(getContext());
 			AccountSettings accountSettings = new AccountSettings(getContext(), account);
 			
+			if (accountSettings.getKeyStore() != null) {
+				TlsSniSocketFactory.INSTANCE.setKeyManager(accountSettings.getKeyStore(), accountSettings.getPassword());
+			} else if (accountSettings.getKeyAlias() != null) {
+				TlsSniSocketFactory.INSTANCE.setKeyManager(accountSettings.getKeyAlias(), getContext());
+			}
 			httpClient = DavHttpClient.create(
 				settings.getBoolean(Constants.SETTING_DISABLE_COMPRESSION, false),
-				settings.getBoolean(Constants.SETTING_NETWORK_LOGGING, false),
-				accountSettings.getKeyStore(),
-				accountSettings.getPassword()
+				settings.getBoolean(Constants.SETTING_NETWORK_LOGGING, false)
 			);
 		}
 		

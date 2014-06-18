@@ -123,7 +123,10 @@
     <string name="network_logging_enabled">All network traffic is being logged verbosely (debug mode)</string>
     <string name="network_logging_disabled">Network traffic is not being logged</string>
     <string name="report_an_issue">Report an issue</string>
-    <string name="keyfile">Keyfile</string>
-    <string name="select_keyfile">Select keyfile</string>
+    <string name="keyfile">Key from file</string>
+    <string name="keychain">Device Key Manager</string>
+    <string name="select_keyfile">Select key file</string>
+    <string name="keyfile_notfound">Key file not found.</string>
+    <string name="keyfile_loaderror">Error loading key file.</string>
 
 </resources>

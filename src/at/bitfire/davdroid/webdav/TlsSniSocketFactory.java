@@ -7,20 +7,26 @@
  ******************************************************************************/
 package at.bitfire.davdroid.webdav;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.KeyStore;
 import java.util.Arrays;
+import java.util.Collections;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
+import javax.net.ssl.X509KeyManager;
 
 import android.annotation.TargetApi;
+import android.content.Context;
 import android.net.SSLCertificateSocketFactory;
 import android.os.Build;
 import android.util.Log;
@@ -32,12 +38,13 @@ import ch.boye.httpclientandroidlib.protocol.HttpContext;
 public class TlsSniSocketFactory implements LayeredConnectionSocketFactory {
 	private static final String TAG = "davdroid.SNISocketFactory";
 	
-	final static TlsSniSocketFactory INSTANCE = new TlsSniSocketFactory();
+	public final static TlsSniSocketFactory INSTANCE = new TlsSniSocketFactory();
 	
 	private final static SSLCertificateSocketFactory sslSocketFactory =
 			(SSLCertificateSocketFactory)SSLCertificateSocketFactory.getDefault(0);
 	private final static HostnameVerifier hostnameVerifier = new BrowserCompatHostnameVerifier();
 
+	private X509KeyManager keyManager = null;
 	
 	/*
 	For SSL connections without HTTP(S) proxy:
@@ -70,18 +77,6 @@ public class TlsSniSocketFactory implements LayeredConnectionSocketFactory {
 		// we'll rather use an SSLSocket directly
 		plain.close();
 
-		// create a layered SSL socket, but don't do hostname/certificate verification yet
-		for (Field f : SSLCertificateSocketFactory.class.getDeclaredFields()) {
-			if (f.getName().equals("mKeyManagers")) {
-				try {
-					f.setAccessible(true);
-					KeyManager[] km = (KeyManager[]) f.get(sslSocketFactory);
-					Log.d(TAG, "Key Managers " + Arrays.toString(km));
-				} catch (Exception e) {
-					Log.e(TAG, "Could not get key managers", e);
-				}
-			}
-		}
 		// create a plain SSL socket, but don't do hostname/certificate verification yet
 		SSLSocket ssl = (SSLSocket)sslSocketFactory.createSocket(remoteAddr.getAddress(), host.getPort());
 		
@@ -135,7 +130,36 @@ public class TlsSniSocketFactory implements LayeredConnectionSocketFactory {
 				" using " + session.getCipherSuite());
 	}
 	
-	public void setKeyManagers(KeyManager[] kms) {
-		sslSocketFactory.setKeyManagers(kms);
+	public void setKeyManager(byte[] keystore, String password) {
+		try {
+			KeyStore ks = KeyStore.getInstance("BKS");
+			ks.load(new ByteArrayInputStream(keystore), password.toCharArray());
+			KeyManagerFactory factory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+			factory.init(ks, password.toCharArray());
+			boolean found = false;
+			for (KeyManager km : factory.getKeyManagers()) {
+				if (km instanceof X509KeyManager) {
+					setKeyManager((X509KeyManager) km);
+					found = true;
+					Log.d(TAG, "Using user-specified keys with aliases " + Arrays.toString(Collections.list(ks.aliases()).toArray()) + ".");
+				}
+				break;
+			}
+			if (!found) {
+				Log.e(TAG, "No X509 compatible key manager was found.");
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "Could not set key managers", e);
+		}
+	}
+
+	public void setKeyManager(String alias, Context context) {
+		setKeyManager(new KeyChainKeyManager(context, alias));
+		Log.d(TAG, "Using key from keychain with alias " + alias + ".");
+	}
+	
+	public void setKeyManager(X509KeyManager keyManager) {
+		this.keyManager = keyManager;
+		sslSocketFactory.setKeyManagers(new KeyManager[]{keyManager});
 	}
 }

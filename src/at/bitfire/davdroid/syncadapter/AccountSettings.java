@@ -38,7 +38,8 @@ public class AccountSettings {
 		KEY_ADDRESSBOOK_URL = "addressbook_url",
 		KEY_ADDRESSBOOK_CTAG = "addressbook_ctag",
 		
-		KEY_CLIENT_KEYSTORE = "client_keystore";
+		KEY_CLIENT_KEYSTORE = "client_keystore",
+		KEY_CLIENT_KEYALIAS = "client_keyalias";
 	
 	Context context;
 	AccountManager accountManager;
@@ -71,6 +72,7 @@ public class AccountSettings {
 		if (serverInfo.getKeyStore() != null) {
 			bundle.putString(KEY_CLIENT_KEYSTORE, Base64.encodeToString(serverInfo.getKeyStore(), Base64.DEFAULT));
 		}
+		bundle.putString(KEY_CLIENT_KEYALIAS, serverInfo.getKeyAlias());
 		for (ServerInfo.ResourceInfo addressBook : serverInfo.getAddressBooks())
 			if (addressBook.isEnabled()) {
 				bundle.putString(KEY_ADDRESSBOOK_URL, addressBook.getURL());
@@ -101,6 +103,10 @@ public class AccountSettings {
 		} else {
 			return Base64.decode(data, Base64.DEFAULT);
 		}
+	}
+	
+	public String getKeyAlias() {
+		return accountManager.getUserData(account, KEY_CLIENT_KEYALIAS);
 	}
 	
 	// address book (CardDAV) settings
