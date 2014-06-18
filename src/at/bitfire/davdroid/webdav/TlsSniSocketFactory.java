@@ -80,6 +80,32 @@ public class TlsSniSocketFactory implements LayeredConnectionSocketFactory {
 		// create a plain SSL socket, but don't do hostname/certificate verification yet
 		SSLSocket ssl = (SSLSocket)sslSocketFactory.createSocket(remoteAddr.getAddress(), host.getPort());
 		
+		// For some reason the KeyManager of the sslParameters might be the default KeyManager instead of the one we specified.
+		// Observed on a Galaxy Note 3 with Android 4.4
+		if (keyManager != null) {
+			try {
+				Object sp = null;
+				for (Field f : ssl.getClass().getDeclaredFields()) {
+					if (f.getName().equals("sslParameters")) {
+						f.setAccessible(true);
+						Log.d(TAG, ssl + "." + f.getName() + " = " + f.get(ssl));
+						sp = f.get(ssl);
+					}
+				}
+				if (sp != null) {
+					for (Field f : sp.getClass().getDeclaredFields()) {
+						if (f.getName().equals("keyManager")) {
+							f.setAccessible(true);
+							Log.d(TAG, sp + "." + f.getName() + " = " + f.get(sp) + "  ---  should be " + keyManager);
+							f.set(sp, keyManager);
+						}
+					}
+				}
+			} catch (Exception e) {
+				Log.e(TAG, "Could not apply workaround for setting keymanager", e);
+			}
+		}
+		
 		// connect, set SNI, shake hands, verify, print connection info
 		connectWithSNI(ssl, host.getHostName());
 
