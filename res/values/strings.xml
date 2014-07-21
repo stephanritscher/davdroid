@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name"  translatable="false">DAVdroid</string>
+    <string name="app_name"  translatable="false">DAVdroid-mirakel</string>
     <string name="menu_settings">Settings</string>
+    <string name="install_taskprovider">Please install a taskprovider like Mirakel or DMFS to sync TODO\'s</string>
 
     <string-array name="http_protocols"  translatable="false">
         <item>http://</item>
@@ -37,6 +38,10 @@
     <string name="davdroid_help">DAVdroid Help</string>
     <string name="show_sync_settings">Manage sync accounts</string>
     <string name="show_website">DAVdroid Web site</string>
+    <string name="mirakel_disclaimer"><![CDATA[
+        <p>This is a modified version of DAVdroid that supports also syncing tasks with Mirakel.</p>
+        <p>If you find bugs or have problems please open a ticket on our <a href="https://github.com/MirakelX/davdroid">github page</a></p>
+        ]]></string>
     <string name="html_main_workaround"><![CDATA[
 		<p>Thank you for buying DAVdroid via Google Play and thus supporting the project. Unfortunately, there are two issues with Google Play:</p>
 		
