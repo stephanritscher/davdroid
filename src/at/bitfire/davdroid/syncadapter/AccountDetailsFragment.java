@@ -103,6 +103,7 @@ public class AccountDetailsFragment extends Fragment implements TextWatcher {
 				ContentResolver.setIsSyncable(account, ContactsContract.AUTHORITY, 0);
 			
 			if (accountManager.addAccountExplicitly(account, serverInfo.getPassword(), userData)) {
+                LocalCalendar.init(getActivity());
 				// account created, now create calendars
 				boolean syncCalendars = false;
 				for (ServerInfo.ResourceInfo calendar : serverInfo.getCalendars())
