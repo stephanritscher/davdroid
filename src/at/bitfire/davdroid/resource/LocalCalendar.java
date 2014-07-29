@@ -17,8 +17,10 @@ import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,6 +65,7 @@ import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.OperationApplicationException;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -278,17 +281,18 @@ public class LocalCalendar extends LocalCollection<Event> {
 				//throw new LocalStorageException(e);
 				return null;
 			} 
-		}
-		for(Uri a:tasksURI(account)){
-			try {
-				cursor = ctx.getContentResolver().query(a,
-						new String[] { Tasks._SYNC_ID, Tasks.SYNC1 }, Tasks._ID+"=?", new String[]{localID+""}, null);
-				Event e=resolveCursor(localID, populate, t, cursor);
-				if(e!=null)
-					return e;
-			} catch (Exception e) {
-				// Eat its
-			} 
+		} else {
+			for (Uri a : tasksURI(account)) {
+				try {
+					cursor = ctx.getContentResolver().query(a,
+							new String[]{Tasks._SYNC_ID, Tasks.SYNC1}, Tasks._ID + "=?", new String[]{localID + ""}, null);
+					Event e = resolveCursor(localID, populate, t, cursor);
+					if (e != null)
+						return e;
+				} catch (Exception e) {
+					// Eat its
+				}
+			}
 		}
 		throw new LocalStorageException();
 		
@@ -355,7 +359,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 														 * Tasks . LIST_ID +
 														 * "=? AND " +
 														 */
-								Tasks._SYNC_ID + "='?'",
+								Tasks._SYNC_ID + "=?",
 								new String[] { /*
 												 * String.valueOf(id) ,
 												 */remoteName }, null);
@@ -423,10 +427,9 @@ public class LocalCalendar extends LocalCollection<Event> {
 					long id = cursor.getLong(0);
 					// new record: generate UID + remote file name so that we can upload
 					Event resource = findById(id, false,TYPE.VTODO);
-					if(resource==null){
+					if(resource!=null){
 						continue;
 					}
-					resource.generateUID();
                     resource.initialize();
 					// write generated UID + remote file name into database
 					ContentValues values = new ContentValues(2);
@@ -474,19 +477,23 @@ public class LocalCalendar extends LocalCollection<Event> {
 			Log.i(TAG, "Committing " + pendingOperations.size() + " operations");
 			ContentResolver resolver = ctx.getContentResolver();
 			// TODO remove this(there must be a better way to do this...)
-			ArrayList<ContentProviderOperation> t = new ArrayList<ContentProviderOperation>();
+			Map<String,ArrayList<ContentProviderOperation>> operations=new HashMap<String, ArrayList<ContentProviderOperation>>();
 			for (ContentProviderOperation op : pendingOperations) {
-				t.add(op);
-				try {
-					resolver.applyBatch(CalendarContract.AUTHORITY, t);
-				} catch (Exception e) {
-					try {
-						resolver.applyBatch(TaskContract.AUTHORITY, t);
-					} catch (Exception e1) {
-						throw new RuntimeException();
-					}
+				String authority = op.getUri().getAuthority();
+				ArrayList<ContentProviderOperation> ops = operations.get(authority);
+				if(ops==null) {
+					ops = new ArrayList<ContentProviderOperation>();
 				}
-				t.clear();
+				ops.add(op);
+				operations.put(authority,ops);
+			}
+			for(String authority : operations.keySet()) {
+				ArrayList<ContentProviderOperation> ops = operations.get(authority);
+				try {
+					resolver.applyBatch(authority, ops);
+				} catch (Exception e) {
+					throw new RuntimeException(e);
+				}
 			}
 			pendingOperations.clear();
 		}
