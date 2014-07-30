@@ -45,6 +45,7 @@ import net.fortuna.ical4j.model.parameter.Value;
 import net.fortuna.ical4j.model.property.Attendee;
 import net.fortuna.ical4j.model.property.Clazz;
 import net.fortuna.ical4j.model.property.Completed;
+import net.fortuna.ical4j.model.property.Created;
 import net.fortuna.ical4j.model.property.DateProperty;
 import net.fortuna.ical4j.model.property.Description;
 import net.fortuna.ical4j.model.property.DtEnd;
@@ -90,6 +91,8 @@ public class Event extends Resource {
 	@Getter	@Setter	private RRule rrule;
 	@Getter	@Setter	private ExDate exdate;
 	@Getter	@Setter	private ExRule exrule;
+    @Getter @Setter private Created created;
+    @Getter @Setter private LastModified updated;
 
 	@Getter	@Setter	private Boolean forPublic;
 	@Getter	@Setter	private Status status;
@@ -197,6 +200,22 @@ public class Event extends Resource {
 		exrule = (ExRule) todo.getProperty(Property.EXRULE);
 		exdate = (ExDate) todo.getProperty(Property.EXDATE);
 		dateCompleted=todo.getDateCompleted();
+
+        if(todo.getCreated()!=null){
+            created=todo.getCreated();
+        }else{
+            created=new Created();
+            created.setDate(new Date(new java.util.Date()));
+
+        }
+
+        if(todo.getLastModified()!=null){
+            updated=todo.getLastModified();
+        }else{
+            updated=new LastModified();
+            updated.setDate(new Date(new java.util.Date()));
+
+        }
 
 		if (todo.getSummary() != null)
 			summary = todo.getSummary().getValue();

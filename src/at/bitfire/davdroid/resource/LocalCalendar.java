@@ -40,6 +40,7 @@ import net.fortuna.ical4j.model.parameter.Role;
 import net.fortuna.ical4j.model.property.Action;
 import net.fortuna.ical4j.model.property.Attendee;
 import net.fortuna.ical4j.model.property.Completed;
+import net.fortuna.ical4j.model.property.Created;
 import net.fortuna.ical4j.model.property.Description;
 import net.fortuna.ical4j.model.property.Duration;
 import net.fortuna.ical4j.model.property.ExDate;
@@ -217,7 +218,7 @@ public class LocalCalendar extends LocalCollection<Event> {
         ContentValues values = new ContentValues();
         values.put(TaskLists.ACCOUNT_NAME, account.name);
         values.put(TaskLists.ACCOUNT_TYPE, account.type);
-        values.put(TaskLists._SYNC_ID, info.getURL());
+        values.put(TaskLists.SYNC1, info.getURL());
         values.put(TaskLists.LIST_NAME, info.getTitle());
         values.put(TaskLists.LIST_COLOR, color);
         values.put(TaskLists.SYNC_ENABLED, 1);
@@ -230,16 +231,10 @@ public class LocalCalendar extends LocalCollection<Event> {
             values.put(Calendars.CAN_ORGANIZER_RESPOND, 1);
             values.put(Calendars.CAN_MODIFY_TIME_ZONE, 1);
         }*/
-
-        Log.i(TAG, "Inserting List: " + values.toString() + " -> "
-                + calendarsURI(account).toString());
-        try{
-            for (Uri uri : tasksURI(account)) {
-                ctx.getContentResolver().insert(uri,values);
-            }
-            client.insert(calendarsURI(account), values);
-        } catch(RemoteException e) {
-            throw new LocalStorageException(e);
+        for (Uri uri : listsURI(account)) {
+            Log.i(TAG, "Inserting List: " + values.toString() + " -> "
+                    + uri.toString());
+            ctx.getContentResolver().insert(uri,values);
         }
     }
 
@@ -249,8 +244,9 @@ public class LocalCalendar extends LocalCollection<Event> {
 				new String[] { Calendars._ID, Calendars.NAME, COLLECTION_COLUMN_CTAG },
 				Calendars.DELETED + "=0 AND " + Calendars.SYNC_EVENTS + "=1", null, null);
         List<Cursor> listCursor=new ArrayList<Cursor>();
-        for(Uri uri:tasksURI(account)){
-            @Cleanup Cursor c=ctx.getContentResolver().query(uri,new String[]{TaskLists._ID,TaskLists.LIST_NAME,TaskLists.SYNC_VERSION},TaskLists.SYNC1+" =0 AND "+TaskLists.SYNC_ENABLED+"=1",null,null);
+        for(Uri uri:listsURI(account)){
+            Cursor c=ctx.getContentResolver().query(uri,
+                    new String[]{TaskLists._ID,TaskLists.SYNC1,TaskLists.SYNC_VERSION},TaskLists.SYNC_ENABLED+"=1",null,null);
             listCursor.add(c);
         }
         Map<String,Pair<Long,String>> calenderMap=new HashMap<String, Pair<Long,String>>();
@@ -265,8 +261,9 @@ public class LocalCalendar extends LocalCollection<Event> {
         for(Cursor lc:listCursor) {
             if (lc != null && lc.moveToFirst()) {
                 do {
-                    String name=lc.getString(lc.getColumnIndex(TaskLists.LIST_NAME));
-                    String cTag=lc.getString(lc.getColumnIndex(TaskLists.SYNC1));
+                    int cTagCol= lc.getColumnIndex(TaskLists.SYNC2);
+                    String name=lc.getString(lc.getColumnIndex(TaskLists.SYNC1));
+                    String cTag=lc.isNull(cTagCol)?"":lc.getString(cTagCol);
                     Long id=lc.getLong(lc.getColumnIndex(TaskLists._ID));
                     List<Long> ids;
                     if(listMap.containsKey(name)){
@@ -279,6 +276,7 @@ public class LocalCalendar extends LocalCollection<Event> {
                     listMap.put(name, new Pair<List<Long>, String>(ids,cTag));
                 } while (lc.moveToNext());
             }
+            lc.close();
         }
 		LinkedList<LocalCalendar> calendars = new LinkedList<LocalCalendar>();
         for(Map.Entry<String,Pair<Long,String>> e:calenderMap.entrySet()){
@@ -845,50 +843,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 	}
 
 	protected static List<Uri> tasksURI(Account account) {
-		List<Uri> uris = new ArrayList<Uri>();
-		PackageManager pm = ctx.getPackageManager();
-		try {
-			PackageInfo mirakel = pm.getPackageInfo("de.azapps.mirakelandroid",
-					PackageManager.GET_PROVIDERS);
-			if (mirakel != null && mirakel.versionCode > 18) {
-				uris.add(Tasks.CONTENT_URI
-						.buildUpon()
-						.appendQueryParameter(TaskContract.ACCOUNT_NAME,
-								account.name)
-						.appendQueryParameter(TaskContract.ACCOUNT_TYPE,
-								account.type)
-						.appendQueryParameter(
-								TaskContract.CALLER_IS_SYNCADAPTER, "true")
-						.build());
-			}
-		} catch (NameNotFoundException e) {
-			Log.w(TAG, "Mirakel not found");
-		}catch (Exception e) {
-			Log.wtf(TAG,Log.getStackTraceString(e));
-		}
-		try {
-			PackageInfo dmfs = pm.getPackageInfo("org.dmfs.provider.tasks",
-					PackageManager.GET_PROVIDERS);
-			if (dmfs != null) {
-				uris.add(Uri.parse("content://" + TaskContract.AUTHORITY_DMFS + "/" + Tasks.CONTENT_URI_PATH)
-						.buildUpon()
-						.appendQueryParameter(TaskContract.ACCOUNT_NAME,
-								account.name)
-						.appendQueryParameter(TaskContract.ACCOUNT_TYPE,
-								account.type)
-						.appendQueryParameter(
-								TaskContract.CALLER_IS_SYNCADAPTER, "true")
-						.build());
-			}
-		} catch (NameNotFoundException e) {
-			Log.w(TAG, "dmfs not found");
-		}
-		if (uris.size() == 0) {
-			//TODO show tost here
-			//Toast.makeText(ctx, R.string.install_taskprovider,
-			//		Toast.LENGTH_LONG).show();
-		}
-		return uris;
+		return todoURI(account,Tasks.CONTENT_URI_PATH);
 	}
 
 	
@@ -994,9 +949,12 @@ public class LocalCalendar extends LocalCollection<Event> {
 
 	private Builder buildVTODO(Builder builder, Event todo) {
         //TODO i know int this way this wont be portable, but for testing...
+        Created foo;
 		builder = builder.withValue(Tasks.LIST_ID, listId.get(0))
 				.withValue(Tasks.TITLE, todo.getSummary())
 				.withValue(Tasks.SYNC1, todo.getETag())
+                .withValue(Tasks.CREATED, todo.getCreated().getDate().getTime())
+                .withValue(Tasks.LAST_MODIFIED,todo.getUpdated().getDate().getTime())
 				.withValue(Tasks._SYNC_ID, todo.getName());
 		if(todo.getStatus()!=null&&todo.getDateCompleted()==null){
 			Status status=todo.getStatus();
@@ -1015,8 +973,9 @@ public class LocalCalendar extends LocalCollection<Event> {
 			builder.withValue(Tasks.STATUS, Tasks.STATUS_DEFAULT);
 		}
 		// .withValue(Tasks.U, value)//TODO uid??
-		if (todo.getDue() != null)
-			builder = builder.withValue(Tasks.DUE, todo.getDueInMillis());
+		if (todo.getDue() != null) {
+            builder = builder.withValue(Tasks.DUE, todo.getDueInMillis()).withValue(Tasks.IS_ALLDAY,1);
+        }
 		if (todo.getPriority() != null)
 			builder = builder.withValue(Tasks.PRIORITY, todo.getPriority()
 					.getLevel());
@@ -1200,12 +1159,63 @@ public class LocalCalendar extends LocalCollection<Event> {
 	
 	
 	/* private helper methods */
-	
-	protected static Uri calendarsURI(Account account) {
-		return Calendars.CONTENT_URI.buildUpon().appendQueryParameter(Calendars.ACCOUNT_NAME, account.name)
-				.appendQueryParameter(Calendars.ACCOUNT_TYPE, account.type)
-				.appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true").build();
-	}
+
+    protected static Uri calendarsURI(Account account) {
+        return Calendars.CONTENT_URI.buildUpon().appendQueryParameter(Calendars.ACCOUNT_NAME, account.name)
+                .appendQueryParameter(Calendars.ACCOUNT_TYPE, account.type)
+                .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true").build();
+    }
+
+    protected static List<Uri> listsURI(Account account) {
+        return todoURI(account,TaskLists.CONTENT_URI_PATH);
+    }
+
+    protected static List<Uri> todoURI(Account account,final String basePath) {
+        List<Uri> uris = new ArrayList<Uri>();
+        PackageManager pm = ctx.getPackageManager();
+        try {
+            PackageInfo mirakel = pm.getPackageInfo("de.azapps.mirakelandroid",
+                    PackageManager.GET_PROVIDERS);
+            if (mirakel != null && mirakel.versionCode > 18) {
+                uris.add(Uri.parse("content://" + TaskContract.AUTHORITY + "/" + basePath)
+                        .buildUpon()
+                        .appendQueryParameter(TaskContract.ACCOUNT_NAME,
+                                account.name)
+                        .appendQueryParameter(TaskContract.ACCOUNT_TYPE,
+                                account.type)
+                        .appendQueryParameter(
+                                TaskContract.CALLER_IS_SYNCADAPTER, "true")
+                        .build());
+            }
+        } catch (NameNotFoundException e) {
+            Log.w(TAG, "Mirakel not found");
+        }catch (Exception e) {
+            Log.wtf(TAG,Log.getStackTraceString(e));
+        }
+        try {
+            PackageInfo dmfs = pm.getPackageInfo("org.dmfs.provider.tasks",
+                    PackageManager.GET_PROVIDERS);
+            if (dmfs != null) {
+                uris.add(Uri.parse("content://" + TaskContract.AUTHORITY_DMFS + "/" + basePath)
+                        .buildUpon()
+                        .appendQueryParameter(TaskContract.ACCOUNT_NAME,
+                                account.name)
+                        .appendQueryParameter(TaskContract.ACCOUNT_TYPE,
+                                account.type)
+                        .appendQueryParameter(
+                                TaskContract.CALLER_IS_SYNCADAPTER, "true")
+                        .build());
+            }
+        } catch (NameNotFoundException e) {
+            Log.w(TAG, "dmfs not found");
+        }
+        if (uris.size() == 0) {
+            //TODO show tost here
+            //Toast.makeText(ctx, R.string.install_taskprovider,
+            //		Toast.LENGTH_LONG).show();
+        }
+        return uris;
+    }
 
 	protected Uri calendarsURI() {
 		return calendarsURI(account);
