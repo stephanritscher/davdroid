@@ -174,7 +174,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 			}
 		}
         createCalender(account, info, client, color);
-        createLists(account,info,client,color);
+        createLists(account,info.getURL(),info.getTitle(),color);
 	}
 
     private static void createCalender(Account account, ServerInfo.ResourceInfo info, ContentProviderClient client, int color) throws LocalStorageException {
@@ -214,28 +214,22 @@ public class LocalCalendar extends LocalCollection<Event> {
         }
     }
 
-    private static void createLists(Account account, ServerInfo.ResourceInfo info, ContentProviderClient client, int color) throws LocalStorageException {
+    private static List<Long> createLists(Account account, final String url,final String name, int color) throws LocalStorageException {
+        List<Long> ret=new ArrayList<Long>();
         ContentValues values = new ContentValues();
         values.put(TaskLists.ACCOUNT_NAME, account.name);
         values.put(TaskLists.ACCOUNT_TYPE, account.type);
-        values.put(TaskLists.SYNC1, info.getURL());
-        values.put(TaskLists.LIST_NAME, info.getTitle());
+        values.put(TaskLists.SYNC1, url);
+        values.put(TaskLists.LIST_NAME, name);
         values.put(TaskLists.LIST_COLOR, color);
         values.put(TaskLists.SYNC_ENABLED, 1);
         values.put(TaskLists.VISIBLE, 1);
-
-        /*if (info.isReadOnly())
-            values.put(TaskLists., Calendars.CAL_ACCESS_READ);
-        else {
-            values.put(Calendars.CALENDAR_ACCESS_LEVEL, Calendars.CAL_ACCESS_OWNER);
-            values.put(Calendars.CAN_ORGANIZER_RESPOND, 1);
-            values.put(Calendars.CAN_MODIFY_TIME_ZONE, 1);
-        }*/
         for (Uri uri : listsURI(account)) {
             Log.i(TAG, "Inserting List: " + values.toString() + " -> "
                     + uri.toString());
-            ctx.getContentResolver().insert(uri,values);
+            ret.add(ContentUris.parseId(ctx.getContentResolver().insert(uri,values)));
         }
+        return ret;
     }
 
     public static LocalCalendar[] findAll(Account account, ContentProviderClient providerClient,Context context) throws RemoteException {
@@ -281,7 +275,25 @@ public class LocalCalendar extends LocalCollection<Event> {
 		LinkedList<LocalCalendar> calendars = new LinkedList<LocalCalendar>();
         for(Map.Entry<String,Pair<Long,String>> e:calenderMap.entrySet()){
             String name=e.getKey();
-            calendars.add(new LocalCalendar(account, providerClient, e.getValue().first,listMap.get(name).first, name, e.getValue().second,context));
+            Long calenderId=e.getValue().first;
+            List<Long> listIds;
+            if(!listMap.containsKey(name)){
+                Cursor c=providerClient.query(calendarsURI(account),new String[]{Calendars.NAME,Calendars.CALENDAR_DISPLAY_NAME,Calendars.CALENDAR_COLOR},Calendars._ID+"=?",new String[]{calenderId+""},null);
+                if(c.moveToFirst()) {
+                    try {
+                        listIds=createLists(account,c.getString(0),c.getString(1),c.getInt(2));
+                    } catch (LocalStorageException e1) {
+                        Log.wtf(TAG,"error while readding lists",e1);
+                        return new LocalCalendar[0];
+                    }
+                }else{
+                    Log.wtf(TAG,"Calender did vanish");
+                    return new LocalCalendar[0];
+                }
+            }else{
+                listIds=listMap.get(name).first;
+            }
+            calendars.add(new LocalCalendar(account, providerClient, calenderId,listIds, name, e.getValue().second,context));
         }
 		return calendars.toArray(new LocalCalendar[0]);
 	}
@@ -505,7 +517,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 					long id = cursor.getLong(0);
 					// new record: generate UID + remote file name so that we can upload
 					Event resource = findById(id, false,TYPE.VTODO);
-					if(resource!=null){
+					if(resource==null){
 						continue;
 					}
                     resource.initialize();
@@ -948,8 +960,6 @@ public class LocalCalendar extends LocalCollection<Event> {
 	}
 
 	private Builder buildVTODO(Builder builder, Event todo) {
-        //TODO i know int this way this wont be portable, but for testing...
-        Created foo;
 		builder = builder.withValue(Tasks.LIST_ID, listId.get(0))
 				.withValue(Tasks.TITLE, todo.getSummary())
 				.withValue(Tasks.SYNC1, todo.getETag())
@@ -984,7 +994,9 @@ public class LocalCalendar extends LocalCollection<Event> {
 					todo.getDescription());
 		if(todo.getCompleted()!=null){
 			builder.withValue(Tasks.PERCENT_COMPLETE, todo.getCompleted().getPercentage());
-		}
+		}else{
+            builder.withValue(Tasks.PERCENT_COMPLETE, 0);
+        }
 		if(todo.getDateCompleted()!=null){
 			builder.withValue(Tasks.STATUS, Tasks.STATUS_COMPLETED);
 		}
@@ -1220,8 +1232,20 @@ public class LocalCalendar extends LocalCollection<Event> {
 	protected Uri calendarsURI() {
 		return calendarsURI(account);
 	}
-
-
+    @Override
+    public void updateETag(Resource res, String eTag) throws LocalStorageException {
+        if(res instanceof Event){
+            if(((Event)res).getType()==TYPE.VTODO){
+                Log.d(TAG, "Setting ETag of local resource " + res + " to " + eTag);
+                ContentValues values = new ContentValues(1);
+                values.put(Tasks.SYNC1, eTag);
+                for(Uri u:tasksURI(account)) {
+                    ctx.getContentResolver().update(ContentUris.withAppendedId(u, res.getLocalID()), values, null, new String[]{});
+                }
+            }
+        }
+        super.updateETag(res,eTag);
+    }
 
 
 }
