@@ -241,7 +241,7 @@ public abstract class LocalCollection<T extends Resource> {
 	public void add(Resource resource) {
 		int idx = pendingOperations.size();
 		pendingOperations.add(
-				buildEntry(ContentProviderOperation.newInsert(entriesURI()), resource)
+				buildEntry(ContentProviderOperation.newInsert(entriesURI()), resource,true)
 				.withYieldAllowed(true)
 				.build());
 		
@@ -253,7 +253,7 @@ public abstract class LocalCollection<T extends Resource> {
 	public void updateByRemoteName(Resource remoteResource) throws LocalStorageException {
 		T localResource = findByRemoteName(remoteResource.getName(), false);
 		pendingOperations.add(
-				buildEntry(ContentProviderOperation.newUpdate(ContentUris.withAppendedId(entriesURI(), localResource.getLocalID())), remoteResource)
+				buildEntry(ContentProviderOperation.newUpdate(ContentUris.withAppendedId(entriesURI(), localResource.getLocalID())), remoteResource,false)
 				.withValue(entryColumnETag(), remoteResource.getETag())
 				.withYieldAllowed(true)
 				.build());
@@ -338,7 +338,7 @@ public abstract class LocalCollection<T extends Resource> {
 	 * 
 	 * @param builder Builder to be extended by all resource data that can be stored without extra data rows.
 	 */
-	protected abstract Builder buildEntry(Builder builder, Resource resource);
+	protected abstract Builder buildEntry(Builder builder, Resource resource,final boolean insert);
 	
 	protected abstract void addDataRows(Resource resource, long localID, int backrefIdx);
 	protected abstract void removeDataRows(Resource resource);

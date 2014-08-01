@@ -599,7 +599,7 @@ public class LocalAddressBook extends LocalCollection<Contact> {
 	/* content builder methods */
 	
 	@Override
-	protected Builder buildEntry(Builder builder, Resource resource) {
+	protected Builder buildEntry(Builder builder, Resource resource,final boolean insert) {
 		Contact contact = (Contact)resource;
 
 		return builder

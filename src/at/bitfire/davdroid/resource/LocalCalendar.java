@@ -318,7 +318,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 				int idx = pendingOperations.size();
 				for (Uri uri : tasksURI(account)) {
 					pendingOperations.add(buildEntry(
-							ContentProviderOperation.newInsert(uri), resource)
+							ContentProviderOperation.newInsert(uri), resource,true)
 							.withYieldAllowed(true).build());
 					addDataRows(resource, -1, idx);
 				}
@@ -413,7 +413,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 									ContentProviderOperation.newUpdate(ContentUris
 											.withAppendedId(uri,
 													localResource.getLocalID())),
-									e)
+									e,false)
 									.withValue(Tasks.SYNC1,
 											e.getETag())
 									.withYieldAllowed(true).build());
@@ -440,19 +440,13 @@ public class LocalCalendar extends LocalCollection<Event> {
 			if (resource!=null) {
 				 return resource;
 			}
-			for (Uri uri : tasksURI(account)) {
-				
+            List<Uri> uris=tasksURI(account);
+			for (int i=0;i<uris.size();i++) {
 				@Cleanup Cursor cursor = ctx.getContentResolver()
-						.query(uri,
+						.query(uris.get(i),
 								new String[] { Tasks._ID, Tasks._SYNC_ID,
-										Tasks.SYNC1 }, /*
-														 * Tasks . LIST_ID +
-														 * "=? AND " +
-														 */
-								Tasks._SYNC_ID + "=?",
-								new String[] { /*
-												 * String.valueOf(calenderId) ,
-												 */remoteName }, null);
+										Tasks.SYNC1 },  Tasks . LIST_ID +"=? AND " +Tasks._SYNC_ID + "=?",
+								new String[] {  String.valueOf(listId.get(i)) ,remoteName }, null);
 				if (cursor != null && cursor.moveToNext()) {
 					resource= new Event(cursor.getLong(0), cursor.getString(1),
 							cursor.getString(2), TYPE.VTODO);
@@ -946,26 +940,28 @@ public class LocalCalendar extends LocalCollection<Event> {
 	/* content builder methods */
 
 	@Override
-	protected Builder buildEntry(Builder builder, Resource resource) {
+	protected Builder buildEntry(Builder builder, Resource resource,final boolean insert) {
 		Event event = (Event) resource;
 
 		if (event.getType() == TYPE.VEVENT)
 			builder = buildVEVENT(builder, event);
 		else if (event.getType() == TYPE.VTODO)
-			builder = buildVTODO(builder, event);
+			builder = buildVTODO(builder, event,insert);
 		else
 			throw new RuntimeException();
 
 		return builder;
 	}
 
-	private Builder buildVTODO(Builder builder, Event todo) {
-		builder = builder.withValue(Tasks.LIST_ID, listId.get(0))
-				.withValue(Tasks.TITLE, todo.getSummary())
+	private Builder buildVTODO(Builder builder, Event todo,final boolean insert) {
+		builder = builder.withValue(Tasks.TITLE, todo.getSummary())
 				.withValue(Tasks.SYNC1, todo.getETag())
                 .withValue(Tasks.CREATED, todo.getCreated().getDate().getTime())
                 .withValue(Tasks.LAST_MODIFIED,todo.getUpdated().getDate().getTime())
 				.withValue(Tasks._SYNC_ID, todo.getName());
+        if(insert){
+            builder.withValue(Tasks.LIST_ID, listId.get(0));
+        }
 		if(todo.getStatus()!=null&&todo.getDateCompleted()==null){
 			Status status=todo.getStatus();
 			if(status==Status.VTODO_CANCELLED){
