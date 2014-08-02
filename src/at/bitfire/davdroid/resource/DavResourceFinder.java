@@ -1,4 +1,4 @@
-package at.bitfire.davdroid.syncadapter;
+package at.bitfire.davdroid.resource;
 
 import java.io.IOException;
 import java.net.URI;
@@ -8,6 +8,7 @@ import java.util.List;
 
 import ch.boye.httpclientandroidlib.HttpException;
 import ch.boye.httpclientandroidlib.impl.client.CloseableHttpClient;
+import ezvcard.VCardVersion;
 import android.content.Context;
 import android.util.Log;
 import at.bitfire.davdroid.R;
@@ -39,8 +40,8 @@ public class DavResourceFinder {
 				Log.i(TAG, "Found address book home set: " + pathAddressBooks);
 			
 				WebDavResource homeSetAddressBooks = new WebDavResource(principal, pathAddressBooks);
-				if (checkCapabilities(homeSetAddressBooks, "addressbook")) {
-					homeSetAddressBooks.propfind(Mode.MEMBERS_COLLECTIONS);
+				if (checkHomesetCapabilities(homeSetAddressBooks, "addressbook")) {
+					homeSetAddressBooks.propfind(Mode.CARDDAV_COLLECTIONS);
 					
 					List<ServerInfo.ResourceInfo> addressBooks = new LinkedList<ServerInfo.ResourceInfo>();
 					if (homeSetAddressBooks.getMembers() != null)
@@ -54,6 +55,12 @@ public class DavResourceFinder {
 									resource.getDisplayName(),
 									resource.getDescription(), resource.getColor()
 								);
+								
+								VCardVersion version = resource.getVCardVersion();
+								if (version == null)
+									version = VCardVersion.V3_0;	// VCard 3.0 MUST be supported
+								info.setVCardVersion(version);
+								
 								addressBooks.add(info);
 							}
 					serverInfo.setAddressBooks(addressBooks);
@@ -73,8 +80,8 @@ public class DavResourceFinder {
 				Log.i(TAG, "Found calendar home set: " + pathCalendars);
 			
 				WebDavResource homeSetCalendars = new WebDavResource(principal, pathCalendars);
-				if (checkCapabilities(homeSetCalendars, "calendar-access")) {
-					homeSetCalendars.propfind(Mode.MEMBERS_COLLECTIONS);
+				if (checkHomesetCapabilities(homeSetCalendars, "calendar-access")) {
+					homeSetCalendars.propfind(Mode.CALDAV_COLLECTIONS);
 					
 					List<ServerInfo.ResourceInfo> calendars = new LinkedList<ServerInfo.ResourceInfo>();
 					if (homeSetCalendars.getMembers() != null)
@@ -140,16 +147,12 @@ public class DavResourceFinder {
 		return null;
 	}
 	
-	private static boolean checkCapabilities(WebDavResource resource, String davCapability) throws IOException {
+	private static boolean checkHomesetCapabilities(WebDavResource resource, String davCapability) throws IOException {
 		// check for necessary capabilities
 		try {
 			resource.options();
 			if (resource.supportsDAV(davCapability) &&
-				resource.supportsMethod("PROPFIND") &&
-				resource.supportsMethod("GET") &&
-				resource.supportsMethod("REPORT") &&
-				resource.supportsMethod("PUT") &&
-				resource.supportsMethod("DELETE"))
+				resource.supportsMethod("PROPFIND"))		// check only for methods that MUST be available for home sets
 				return true;
 		} catch(HttpException e) {
 			// for instance, 405 Method not allowed
