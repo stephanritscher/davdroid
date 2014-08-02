@@ -24,7 +24,6 @@ import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import at.bitfire.davdroid.webdav.DavProp;
 import lombok.Cleanup;
 import lombok.Getter;
 import net.fortuna.ical4j.model.DateTime;
@@ -40,7 +39,6 @@ import net.fortuna.ical4j.model.parameter.Role;
 import net.fortuna.ical4j.model.property.Action;
 import net.fortuna.ical4j.model.property.Attendee;
 import net.fortuna.ical4j.model.property.Completed;
-import net.fortuna.ical4j.model.property.Created;
 import net.fortuna.ical4j.model.property.Description;
 import net.fortuna.ical4j.model.property.Duration;
 import net.fortuna.ical4j.model.property.ExDate;
@@ -85,7 +83,6 @@ import android.util.Log;
 import android.util.Pair;
 
 import at.bitfire.davdroid.resource.Event.TYPE;
-import at.bitfire.davdroid.syncadapter.ServerInfo;
 
 /**
  * Represents a locally stored calendar, containing Events.
@@ -180,7 +177,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 			}
 		}
         createCalender(account, info, client, color);
-        createLists(account,info.getURL(),info.getTitle(),color);
+        createLists(account, info.getURL(), info.getTitle(), color);
 	}
 		
     private static void createCalender(Account account, ServerInfo.ResourceInfo info, ContentProviderClient client, int color) throws LocalStorageException {
@@ -821,22 +818,23 @@ public class LocalCalendar extends LocalCollection<Event> {
 	
 	public void deleteAllExceptRemoteNames(Resource[] remoteResources) {
 		String where;
-
 		if (remoteResources.length != 0) {
 			List<String> sqlFileNames = new LinkedList<String>();
-			for (Resource res : remoteResources)
-				sqlFileNames.add(DatabaseUtils.sqlEscapeString(res.getName()));
+			for (Resource res : remoteResources) {
+                sqlFileNames.add(DatabaseUtils.sqlEscapeString(res.getName()));
+            }
 			where = entryColumnRemoteName() + " NOT IN ("
 					+ StringUtils.join(sqlFileNames, ",") + ")";
-		} else
-			where = entryColumnRemoteName() + " IS NOT NULL";
+		} else {
+            where = entryColumnRemoteName() + " IS NOT NULL";
+        }
+        Log.w(TAG,where);
 
 		Builder builder = ContentProviderOperation.newDelete(entriesURI())
 				.withSelection(
 						entryColumnParentID() + "=? AND (" + where + ")",
 						new String[] { String.valueOf(calenderId) });
 		pendingOperations.add(builder.withYieldAllowed(true).build());
-		where = "";
 		if (remoteResources.length != 0) {
 			List<String> sqlFileNames = new LinkedList<String>();
 			for (Resource res : remoteResources)
@@ -845,10 +843,11 @@ public class LocalCalendar extends LocalCollection<Event> {
 					+ StringUtils.join(sqlFileNames, ",") + ")";
 		} else
 			where = entryColumnRemoteName() + " IS NOT NULL";
-		for (Uri uri : tasksURI(account)) {
-			builder = ContentProviderOperation.newDelete(uri).withSelection(
+        List<Uri> uris=tasksURI(account);
+		for (int i=0;i<uris.size();i++) {
+			builder = ContentProviderOperation.newDelete(uris.get(i)).withSelection(
 					Tasks.LIST_ID + "=? AND (" + where + ")",
-					new String[] { String.valueOf(calenderId) });
+					new String[] { String.valueOf(listId.get(i)) });
 		}
 		pendingOperations.add(builder.withYieldAllowed(true).build());
 	}
@@ -962,7 +961,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 		builder = builder.withValue(Tasks.TITLE, todo.getSummary())
 				.withValue(Tasks.SYNC1, todo.getETag())
                 .withValue(Tasks.CREATED, todo.getCreated().getDate().getTime())
-                .withValue(Tasks.LAST_MODIFIED,todo.getUpdated().getDate().getTime())
+                .withValue(Tasks.LAST_MODIFIED, todo.getUpdated().getDate().getTime())
 				.withValue(Tasks._SYNC_ID, todo.getName());
         if(insert){
             builder.withValue(Tasks.LIST_ID, listId.get(0));
