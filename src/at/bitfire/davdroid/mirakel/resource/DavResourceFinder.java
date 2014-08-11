@@ -86,27 +86,27 @@ public class DavResourceFinder {
 					List<ServerInfo.ResourceInfo> calendars = new LinkedList<ServerInfo.ResourceInfo>();
 					if (homeSetCalendars.getMembers() != null)
 						for (WebDavResource resource : homeSetCalendars.getMembers())
-							if (resource.isCalendar()) {
-								Log.i(TAG, "Found calendar: " + resource.getLocation().getRawPath());
-								if (resource.getSupportedComponents() != null) {
-									// CALDAV:supported-calendar-component-set available
-									boolean supportsEvents = false;
-									for (String supportedComponent : resource.getSupportedComponents())
-										if (supportedComponent.equalsIgnoreCase("VEVENT"))
-											supportsEvents = true;
-									if (!supportsEvents)	// ignore collections without VEVENT support
-										continue;
-								}
-								ServerInfo.ResourceInfo info = new ServerInfo.ResourceInfo(
-									ServerInfo.ResourceInfo.Type.CALENDAR,
-									resource.isReadOnly(),
-									resource.getLocation().toASCIIString(),
-									resource.getDisplayName(),
-									resource.getDescription(), resource.getColor()
-								);
-								info.setTimezone(resource.getTimezone());
-								calendars.add(info);
-							}
+                            if (resource.isCalendar()) {
+                                Log.i(TAG, "Found calendar: " + resource.getLocation().getRawPath());
+                                if (resource.getSupportedComponents() != null) {
+                                    // CALDAV:supported-calendar-component-set available
+                                    boolean supportsEvents = false;
+                                    for (String supportedComponent : resource.getSupportedComponents())
+                                        if (supportedComponent.equalsIgnoreCase("VEVENT")||supportedComponent.equalsIgnoreCase("VTODO"))
+                                            supportsEvents = true;
+                                    if (!supportsEvents)	// ignore collections without VEVENT support
+                                        continue;
+                                }
+                                ServerInfo.ResourceInfo info = new ServerInfo.ResourceInfo(
+                                        ServerInfo.ResourceInfo.Type.CALENDAR,
+                                        resource.isReadOnly(),
+                                        resource.getLocation().toASCIIString(),
+                                        resource.getDisplayName(),
+                                        resource.getDescription(), resource.getColor()
+                                );
+                                info.setTimezone(resource.getTimezone());
+                                calendars.add(info);
+                            }
 					serverInfo.setCalendars(calendars);
 				} else
 					Log.w(TAG, "Found calendar home set, but it doesn't advertise CalDAV support");
