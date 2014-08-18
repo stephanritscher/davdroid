@@ -30,6 +30,7 @@ import android.content.ContentProviderOperation;
 import android.content.ContentProviderOperation.Builder;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
@@ -96,8 +97,8 @@ public class LocalAddressBook extends LocalCollection<Contact> {
 
 
 
-	public LocalAddressBook(Account account, ContentProviderClient providerClient, AccountSettings accountSettings) {
-		super(account, providerClient);
+	public LocalAddressBook(Account account, ContentProviderClient providerClient, AccountSettings accountSettings,Context ctx) {
+		super(account, providerClient,ctx);
 		this.accountSettings = accountSettings;
 	}
 	

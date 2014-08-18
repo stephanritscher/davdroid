@@ -28,8 +28,10 @@
     <string name="what_to_sync">Which collections shall be synchronized?</string>
     <string name="address_books">Address books</string>
     <string name="calendars">Calendars</string>
+    <string name="todo_list">Tasklist</string>
     <string name="select_address_book">Select up to one address book (tap again to unselect):</string>
     <string name="select_calendars">Select your calendars:</string>
+    <string name="select_todo_list">Select your task lists:</string>
     <string name="auth_preemptive">Preemptive authentication (recommended, but incompatible with Digest auth)</string>
     
     <string name="davdroid_help">DAVdroid Help</string>

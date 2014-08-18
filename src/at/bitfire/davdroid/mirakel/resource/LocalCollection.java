@@ -11,6 +11,7 @@
 package at.bitfire.davdroid.mirakel.resource;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import lombok.Cleanup;
 import android.accounts.Account;
@@ -19,6 +20,7 @@ import android.content.ContentProviderOperation;
 import android.content.ContentProviderOperation.Builder;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.OperationApplicationException;
 import android.database.Cursor;
 import android.net.Uri;
@@ -35,17 +37,19 @@ import android.util.Log;
  */
 public abstract class LocalCollection<T extends Resource> {
 	private static final String TAG = "davdroid.LocalCollection";
-	
+
+    protected Context ctx;
 	protected Account account;
 	protected ContentProviderClient providerClient;
 	protected ArrayList<ContentProviderOperation> pendingOperations = new ArrayList<ContentProviderOperation>();
 
-	
+
+
 	// database fields
 	
 	/** base Uri of the collection's entries (for instance, Events.CONTENT_URI);
 	 *  apply syncAdapterURI() before returning a value */
-	abstract protected Uri entriesURI();
+	abstract protected Uri entriesURI() throws RecordNotFoundException;
 
 	abstract protected String entryColumnAccountType();
 	abstract protected String entryColumnAccountName();
@@ -61,7 +65,8 @@ public abstract class LocalCollection<T extends Resource> {
 	abstract protected String entryColumnUID();
 	
 
-	LocalCollection(Account account, ContentProviderClient providerClient) {
+	LocalCollection(Account account, ContentProviderClient providerClient,Context ctx) {
+        this.ctx=ctx;
 		this.account = account;
 		this.providerClient = providerClient;
 	}
@@ -70,8 +75,8 @@ public abstract class LocalCollection<T extends Resource> {
 	// collection operations
 	
 	abstract public long getId();
-	abstract public String getCTag();
-	abstract public void setCTag(String cTag);
+	abstract public String getCTag() throws LocalStorageException;
+	abstract public void setCTag(String cTag) throws LocalStorageException;
 
 	
 	// content provider (= database) querying
@@ -238,7 +243,7 @@ public abstract class LocalCollection<T extends Resource> {
 	 * @return the new resource object */
 	abstract public T newResource(long localID, String resourceName, String eTag);
 	
-	public void add(Resource resource) {
+	public void add(Resource resource) throws LocalStorageException{
 		int idx = pendingOperations.size();
 		pendingOperations.add(
 				buildEntry(ContentProviderOperation.newInsert(entriesURI()), resource,true)
@@ -262,7 +267,7 @@ public abstract class LocalCollection<T extends Resource> {
 		addDataRows(remoteResource, localResource.getLocalID(), -1);
 	}
 
-	public void delete(Resource resource) {
+	public void delete(Resource resource) throws RecordNotFoundException{
 		pendingOperations.add(ContentProviderOperation
 				.newDelete(ContentUris.withAppendedId(entriesURI(), resource.getLocalID()))
 				.withYieldAllowed(true)
@@ -273,7 +278,7 @@ public abstract class LocalCollection<T extends Resource> {
 	 * Enqueues deleting all resources except the give ones from the local collection. Requires commit().
 	 * @param remoteResources resources with these remote file names will be kept
 	 */
-	public abstract void deleteAllExceptRemoteNames(Resource[] remoteResources);
+	public abstract void deleteAllExceptRemoteNames(Resource[] remoteResources) throws LocalStorageException;
 	
 	public void updateETag(Resource res, String eTag) throws LocalStorageException {
 		Log.d(TAG, "Setting ETag of local resource " + res + " to " + eTag);
@@ -286,7 +291,7 @@ public abstract class LocalCollection<T extends Resource> {
 			throw new LocalStorageException(e);
 		}
 	}
-	public void clearDirty(Resource resource) {
+	public void clearDirty(Resource resource) throws RecordNotFoundException{
 		pendingOperations.add(ContentProviderOperation
 				.newUpdate(ContentUris.withAppendedId(entriesURI(), resource.getLocalID()))
 				.withValue(entryColumnDirty(), 0)
@@ -338,9 +343,9 @@ public abstract class LocalCollection<T extends Resource> {
 	 * 
 	 * @param builder Builder to be extended by all resource data that can be stored without extra data rows.
 	 */
-	protected abstract Builder buildEntry(Builder builder, Resource resource,final boolean insert);
+	protected abstract Builder buildEntry(Builder builder, Resource resource,final boolean insert) throws LocalStorageException;
 	
-	protected abstract void addDataRows(Resource resource, long localID, int backrefIdx);
+	protected abstract void addDataRows(Resource resource, long localID, int backrefIdx) throws LocalStorageException;
 	protected abstract void removeDataRows(Resource resource);
 
 }

@@ -10,30 +10,35 @@
  ******************************************************************************/
 package at.bitfire.davdroid.mirakel.syncadapter;
 
-import java.net.URISyntaxException;
-import java.util.HashMap;
-import java.util.Map;
-
 import android.accounts.Account;
 import android.app.Service;
 import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
+import android.os.RemoteException;
 import android.util.Log;
-import at.bitfire.davdroid.mirakel.resource.CardDavAddressBook;
-import at.bitfire.davdroid.mirakel.resource.LocalAddressBook;
+
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
+
+import at.bitfire.davdroid.mirakel.resource.CalDavCalendar;
+import at.bitfire.davdroid.mirakel.resource.CalDavList;
+import at.bitfire.davdroid.mirakel.resource.LocalCalendar;
 import at.bitfire.davdroid.mirakel.resource.LocalCollection;
+import at.bitfire.davdroid.mirakel.resource.LocalTodoList;
+import at.bitfire.davdroid.mirakel.resource.RecordNotFoundException;
 import at.bitfire.davdroid.mirakel.resource.RemoteCollection;
 
-public class ContactsSyncAdapterService extends Service {
-	private static ContactsSyncAdapter syncAdapter;
-
+public class ListsSyncAdapterService extends Service {
+	private static SyncAdapter syncAdapter;
+	
 	
 	@Override
 	public void onCreate() {
 		if (syncAdapter == null)
-			syncAdapter = new ContactsSyncAdapter(getApplicationContext());
+			syncAdapter = new SyncAdapter(getApplicationContext());
 	}
 
 	@Override
@@ -44,18 +49,18 @@ public class ContactsSyncAdapterService extends Service {
 
 	@Override
 	public IBinder onBind(Intent intent) {
-		return syncAdapter.getSyncAdapterBinder();
+		return syncAdapter.getSyncAdapterBinder(); 
 	}
 	
 
-	private static class ContactsSyncAdapter extends DavSyncAdapter {
-		private final static String TAG = "davdroid.ContactsSyncAdapter";
-
+	private static class SyncAdapter extends DavSyncAdapter {
+		private final static String TAG = "davdroid.ListsSyncAdapter";
+		private Context ctx;
 		
-		private ContactsSyncAdapter(Context context) {
+		private SyncAdapter(Context context) {
 			super(context);
+			this.ctx=context;
 		}
-
 		@Override
 		protected Map<LocalCollection<?>, RemoteCollection<?>> getSyncPairs(Account account, ContentProviderClient provider) {
 			AccountSettings settings = new AccountSettings(getContext(), account);
@@ -63,21 +68,20 @@ public class ContactsSyncAdapterService extends Service {
 					password = settings.getPassword();
 			boolean preemptive = settings.getPreemptiveAuth();
 
-			String addressBookURL = settings.getAddressBookURL();
-			if (addressBookURL == null)
-				return null;
-			
 			try {
-				LocalCollection<?> database = new LocalAddressBook(account, provider, settings,getContext());
-				RemoteCollection<?> dav = new CardDavAddressBook(httpClient, addressBookURL, userName, password, preemptive);
-				
 				Map<LocalCollection<?>, RemoteCollection<?>> map = new HashMap<LocalCollection<?>, RemoteCollection<?>>();
-				map.put(database, dav);
-				
+				for (LocalTodoList todoList : LocalTodoList.findAll(account, provider,ctx)) {
+					RemoteCollection<?> dav = new CalDavList(httpClient, todoList.getUrl(), userName, password, preemptive);
+					map.put(todoList, dav);
+				}
 				return map;
+			} catch (RemoteException ex) {
+				Log.e(TAG, "Couldn't find local calendars", ex);
 			} catch (URISyntaxException ex) {
-				Log.e(TAG, "Couldn't build address book URI", ex);
-			}
+				Log.e(TAG, "Couldn't build calendar URI", ex);
+			}catch (RecordNotFoundException ex){
+                Log.e(TAG,"No Taskprovider found",ex);
+            }
 			
 			return null;
 		}

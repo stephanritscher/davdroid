@@ -65,6 +65,18 @@
                 android:name="android.content.SyncAdapter"
                 android:resource="@xml/sync_calendars" />
         </service>
+        <service
+            android:name=".syncadapter.ListsSyncAdapterService"
+            android:exported="true" >
+
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/sync_list" />
+        </service>
 
         <activity
             android:name=".MainActivity"

@@ -88,6 +88,8 @@ public class SelectCollectionsFragment extends ListFragment {
 				addressBook.setEnabled(false);
 			for (ServerInfo.ResourceInfo calendar : serverInfo.getCalendars())
 				calendar.setEnabled(false);
+            for (ServerInfo.ResourceInfo todoList : serverInfo.getTodoLists())
+                todoList.setEnabled(false);
 			
 			ListAdapter adapter = getListView().getAdapter();
 			for (long id : getListView().getCheckedItemIds()) {

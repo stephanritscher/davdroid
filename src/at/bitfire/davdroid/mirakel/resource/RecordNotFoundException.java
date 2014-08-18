@@ -23,6 +23,10 @@ public class RecordNotFoundException extends LocalStorageException {
 	RecordNotFoundException(Throwable ex) {
 		super(detailMessage, ex);
 	}
+
+    RecordNotFoundException(String msg) {
+        super(msg);
+    }
 	
 	RecordNotFoundException() {
 		super(detailMessage);

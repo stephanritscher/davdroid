@@ -82,19 +82,22 @@ public abstract class RemoteCollection<T extends Resource> {
 	@SuppressWarnings("unchecked")
 	public Resource[] multiGet(Resource[] resources) throws IOException, DavException, HttpException {
 		try {
-			if (resources.length == 1)
-				return (T[]) new Resource[] { get(resources[0]) };
+            android.os.Debug.waitForDebugger();
+			if (resources.length == 1) {
+                return new Resource[]{get(resources[0])};
+            }
 			
 			Log.i(TAG, "Multi-getting " + resources.length + " remote resource(s)");
 			
 			LinkedList<String> names = new LinkedList<String>();
-			for (Resource resource : resources)
-				names.add(resource.getName());
-			
+			for (Resource resource : resources) {
+                names.add(resource.getName());
+            }
 			LinkedList<T> foundResources = new LinkedList<T>();
 			collection.multiGet(multiGetType(), names.toArray(new String[0]));
-			if (collection.getMembers() == null)
-				throw new DavNoContentException();
+			if (collection.getMembers() == null) {
+                throw new DavNoContentException();
+            }
 			
 			for (WebDavResource member : collection.getMembers()) {
 				T resource = newResourceSkeleton(member.getName(), member.getETag());

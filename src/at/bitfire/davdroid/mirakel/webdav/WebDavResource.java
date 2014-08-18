@@ -290,30 +290,30 @@ public class WebDavResource {
 		// processMultiStatus() requires knowledge of the actual content location,
 		// so we have to handle redirections manually and create a new request for the new location
 		for (int i = context.getRequestConfig().getMaxRedirects(); i > 0; i--) {
-		List<String> hrefs = new LinkedList<String>();
-		for (String name : names)
-			hrefs.add(location.resolve(name).getRawPath());
-		DavMultiget multiget = DavMultiget.newRequest(type, hrefs.toArray(new String[0]));
-		StringWriter writer = new StringWriter();
-		try {
-				Serializer serializer = new Persister();
-			serializer.write(multiget, writer);
-		} catch (Exception ex) {
-			Log.e(TAG, "Couldn't create XML multi-get request", ex);
-			throw new DavException("Couldn't create multi-get request");
-		}
+            List<String> hrefs = new LinkedList<String>();
+            for (String name : names)
+                hrefs.add(location.resolve(name).getRawPath());
+            DavMultiget multiget = DavMultiget.newRequest(type, hrefs.toArray(new String[0]));
+            StringWriter writer = new StringWriter();
+            try {
+                    Serializer serializer = new Persister();
+                serializer.write(multiget, writer);
+            } catch (Exception ex) {
+                Log.e(TAG, "Couldn't create XML multi-get request", ex);
+                throw new DavException("Couldn't create multi-get request");
+            }
 
-		HttpReport report = new HttpReport(location, writer.toString());
-			response = httpClient.execute(report, context);
-			
-			if (response.getStatusLine().getStatusCode()/100 == 3) {
-				location = DavRedirectStrategy.getLocation(report, response, context);
-				Log.i(TAG, "Redirection on REPORT multi-get; trying again at new content URL: " + location);
-			
-			HttpEntity entity = response.getEntity();
-				if (entity != null) { @Cleanup InputStream content = entity.getContent(); }
-			} else
-				break;		// answer was NOT a redirection, continue
+            HttpReport report = new HttpReport(location, writer.toString());
+                response = httpClient.execute(report, context);
+
+                if (response.getStatusLine().getStatusCode()/100 == 3) {
+                    location = DavRedirectStrategy.getLocation(report, response, context);
+                    Log.i(TAG, "Redirection on REPORT multi-get; trying again at new content URL: " + location);
+
+                HttpEntity entity = response.getEntity();
+                    if (entity != null) { @Cleanup InputStream content = entity.getContent(); }
+                } else
+                    break;		// answer was NOT a redirection, continue
 		}
 		if (response == null)
 				throw new DavNoContentException();

@@ -12,7 +12,6 @@ package at.bitfire.davdroid.mirakel.resource;
 
 import java.net.URISyntaxException;
 
-import at.bitfire.davdroid.mirakel.resource.Event.TYPE;
 import at.bitfire.davdroid.mirakel.webdav.DavMultiget;
 import ch.boye.httpclientandroidlib.impl.client.CloseableHttpClient;
 
@@ -31,7 +30,7 @@ public class CalDavCalendar extends RemoteCollection<Event> {
 	
 	@Override
 	protected Event newResourceSkeleton(String name, String ETag) {
-		return new Event(name, ETag,TYPE.UNKNOWN);
+		return new Event(name, ETag);
 	}
 	
 	
