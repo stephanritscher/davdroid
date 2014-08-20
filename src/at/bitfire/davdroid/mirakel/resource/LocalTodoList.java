@@ -12,9 +12,7 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.net.Uri;
-import android.os.Build;
 import android.os.RemoteException;
-import android.provider.CalendarContract;
 import android.util.Log;
 
 import net.fortuna.ical4j.model.DateTime;

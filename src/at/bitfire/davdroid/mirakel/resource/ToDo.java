@@ -18,15 +18,14 @@ import net.fortuna.ical4j.model.ValidationException;
 import net.fortuna.ical4j.model.component.VAlarm;
 import net.fortuna.ical4j.model.component.VToDo;
 import net.fortuna.ical4j.model.property.Attendee;
+import net.fortuna.ical4j.model.property.Categories;
 import net.fortuna.ical4j.model.property.Clazz;
 import net.fortuna.ical4j.model.property.Completed;
 import net.fortuna.ical4j.model.property.Created;
 import net.fortuna.ical4j.model.property.DateProperty;
 import net.fortuna.ical4j.model.property.Description;
-import net.fortuna.ical4j.model.property.DtEnd;
 import net.fortuna.ical4j.model.property.DtStart;
 import net.fortuna.ical4j.model.property.Due;
-import net.fortuna.ical4j.model.property.Duration;
 import net.fortuna.ical4j.model.property.ExDate;
 import net.fortuna.ical4j.model.property.ExRule;
 import net.fortuna.ical4j.model.property.LastModified;
@@ -44,8 +43,6 @@ import net.fortuna.ical4j.model.property.Uid;
 import net.fortuna.ical4j.model.property.Version;
 import net.fortuna.ical4j.util.SimpleHostInfo;
 import net.fortuna.ical4j.util.UidGenerator;
-
-import org.dmfs.provider.tasks.TaskContract;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -83,6 +80,11 @@ public class ToDo extends Resource {
     @Getter @Setter private boolean opaque;
     @Getter @Setter private Completed dateCompleted;
 
+    @Getter
+    private List<Categories> categories=new LinkedList<Categories>();
+    public void addCategorie(Categories categorie) {
+        categories.add(categorie);
+    }
 
     @Getter @Setter private Organizer organizer;
     @Getter private List<Attendee> attendees = new LinkedList<Attendee>();
@@ -147,6 +149,7 @@ public class ToDo extends Resource {
             Log.w(TAG, "Received VTODO without UID, generating new one");
             generateUID();
         }
+        categories=todo.getProperties(Property.CATEGORIES);
 
         if(todo.getStartDate()!=null) {
             dtStart = todo.getStartDate();
