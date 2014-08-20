@@ -115,7 +115,7 @@ public class DavResourceFinder {
                                     info.setTimezone(resource.getTimezone());
                                     calendars.add(info);
                                 }
-                                if(supportsEvents) {
+                                if(supportsTodos&&!resource.isReadOnly()) {
                                     ServerInfo.ResourceInfo info = new ServerInfo.ResourceInfo(
                                             ServerInfo.ResourceInfo.Type.TODO_LIST,
                                             resource.isReadOnly(),
