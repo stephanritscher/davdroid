@@ -82,7 +82,6 @@ public abstract class RemoteCollection<T extends Resource> {
 	@SuppressWarnings("unchecked")
 	public Resource[] multiGet(Resource[] resources) throws IOException, DavException, HttpException {
 		try {
-            android.os.Debug.waitForDebugger();
 			if (resources.length == 1) {
                 return new Resource[]{get(resources[0])};
             }

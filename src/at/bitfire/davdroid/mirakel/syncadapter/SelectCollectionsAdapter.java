@@ -123,7 +123,6 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 				convertView = inflater.inflate(R.layout.address_books_heading, parent, false);
 				break;
 			case TYPE_ADDRESS_BOOKS_ROW:
-
 				convertView = inflater.inflate(android.R.layout.simple_list_item_single_choice, null);
 				break;
 			case TYPE_CALENDARS_HEADING:
