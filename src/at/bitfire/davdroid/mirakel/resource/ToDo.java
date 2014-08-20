@@ -45,6 +45,8 @@ import net.fortuna.ical4j.model.property.Version;
 import net.fortuna.ical4j.util.SimpleHostInfo;
 import net.fortuna.ical4j.util.UidGenerator;
 
+import org.dmfs.provider.tasks.TaskContract;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -68,8 +70,6 @@ public class ToDo extends Resource {
     private String summary, location, description;
 
     @Getter	private DtStart dtStart;
-    @Getter	private DtEnd dtEnd;
-    @Getter @Setter private Duration duration;
     @Getter	@Setter	private RDate rdate;
     @Getter	@Setter	private RRule rrule;
     @Getter	@Setter	private ExDate exdate;
@@ -86,6 +86,7 @@ public class ToDo extends Resource {
 
     @Getter @Setter private Organizer organizer;
     @Getter private List<Attendee> attendees = new LinkedList<Attendee>();
+
     public void addAttendee(Attendee attendee) {
         attendees.add(attendee);
     }
@@ -134,13 +135,12 @@ public class ToDo extends Resource {
         } catch (ParserException e) {
             throw new InvalidResourceException(e);
         }
-        // event
+        // ToDo
         ComponentList todos = ical.getComponents(Component.VTODO);
         if (todos == null || todos.isEmpty())
-            return;
+            throw new InvalidResourceException("Maybe VEVENT or so");
 
         VToDo todo = (VToDo) todos.get(0);
-
         if (todo.getUid() != null)
             uid = todo.getUid().toString();
         else {
@@ -164,7 +164,6 @@ public class ToDo extends Resource {
         }else{
             created=new Created();
             created.setDate(new Date(new java.util.Date()));
-
         }
 
         if(todo.getLastModified()!=null){
@@ -226,10 +225,6 @@ public class ToDo extends Resource {
 
         if(dtStart!=null)
             props.add(dtStart);
-        if (dtEnd != null)
-            props.add(dtEnd);
-        if (duration != null)
-            props.add(duration);
         if (rrule != null)
             props.add(rrule);
         if (rdate != null)

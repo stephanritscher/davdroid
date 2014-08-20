@@ -221,8 +221,13 @@ public class LocalTodoList extends LocalCollection<ToDo> {
     @Override
     protected ContentProviderOperation.Builder buildEntry(ContentProviderOperation.Builder builder, Resource resource, boolean insert) throws LocalStorageException {
         ToDo todo = (ToDo)resource;
+        if(todo.getCreated()==null||todo.getUpdated()==null){
+            Log.wtf(TAG,"somehow this task does not exists");
+            return builder;
+        }
         builder = builder.withValue(TaskContract.Tasks.TITLE, todo.getSummary())
                 .withValue(TaskContract.Tasks.SYNC1, todo.getETag())
+                .withValue(entryColumnUID(), todo.getUid())
                 .withValue(TaskContract.Tasks.CREATED, todo.getCreated().getDate().getTime())
                 .withValue(TaskContract.Tasks.LAST_MODIFIED, todo.getUpdated().getDate().getTime())
                 .withValue(TaskContract.Tasks._SYNC_ID, todo.getName());
