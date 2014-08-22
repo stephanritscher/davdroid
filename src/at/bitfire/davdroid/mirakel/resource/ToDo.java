@@ -212,9 +212,6 @@ public class ToDo extends Resource {
     }
 
 
-
-
-
     @Override
     public ByteArrayOutputStream toEntity() throws IOException {
         net.fortuna.ical4j.model.Calendar ical = new net.fortuna.ical4j.model.Calendar();
@@ -260,7 +257,9 @@ public class ToDo extends Resource {
             props.add(completed);
         if(dateCompleted!=null)
             props.add(dateCompleted);
-
+        if(categories!=null){
+            props.addAll(categories);
+        }
         if(status.getValue().equals(Status.VTODO_COMPLETED)){
             props.add(new Completed(new DateTime(new java.util.Date())));
         }

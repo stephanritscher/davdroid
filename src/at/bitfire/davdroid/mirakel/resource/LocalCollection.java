@@ -346,6 +346,6 @@ public abstract class LocalCollection<T extends Resource> {
 	protected abstract Builder buildEntry(Builder builder, Resource resource,final boolean insert) throws LocalStorageException;
 	
 	protected abstract void addDataRows(Resource resource, long localID, int backrefIdx) throws LocalStorageException;
-	protected abstract void removeDataRows(Resource resource);
+	protected abstract void removeDataRows(Resource resource) throws RecordNotFoundException, LocalStorageException;
 
 }

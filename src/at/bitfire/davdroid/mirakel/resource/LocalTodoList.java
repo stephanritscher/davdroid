@@ -16,6 +16,7 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import net.fortuna.ical4j.model.DateTime;
+import net.fortuna.ical4j.model.property.Categories;
 import net.fortuna.ical4j.model.property.Completed;
 import net.fortuna.ical4j.model.property.PercentComplete;
 import net.fortuna.ical4j.model.property.Priority;
@@ -188,7 +189,17 @@ public class LocalTodoList extends LocalCollection<ToDo> {
             }
             t.setPriority(new Priority(cursor.getInt(5)));
             t.setCompleted(new PercentComplete(cursor.getInt(10)));
+            try {
+                @Cleanup Cursor c = providerClient.query(propertyUri(), new String[]{TaskContract.Property.Category.DATA1}, TaskContract.Properties.MIMETYPE + "=? AND " + TaskContract.Properties.TASK_ID + "=?",
+                        new String[]{"vnd.android.cursor.item/category", String.valueOf(record.getLocalID())}, null);
+                while (c.moveToNext()) {
+                    t.addCategorie(new Categories(c.getString(0)));
+                }
+            }catch (RemoteException e){
+                Log.wtf(TAG,"Query provider failed");
+            }
         }
+
     }
 
     @Override
@@ -271,17 +282,49 @@ public class LocalTodoList extends LocalCollection<ToDo> {
 
     @Override
     protected void addDataRows(Resource resource, long localID, int backrefIdx) throws RecordNotFoundException {
-        /*ToDo todo = (ToDo)resource;
-        for (VAlarm alarm : todo.getAlarms())
+        ToDo todo = (ToDo) resource;
+        for (Categories category : todo.getCategories()) {
+            pendingOperations.add(buildCategory(
+                    newDataInsertBuilder(propertyUri(), TaskContract.Properties.TASK_ID, localID, backrefIdx), category)
+                    .build());
+        }
+        /*for (VAlarm alarm : todo.getAlarms())
             pendingOperations.add(buildReminder(
                     newDataInsertBuilder(alarmUri(),
                             TaskContract.Alarms., localID, backrefIdx), alarm)
                     .build());*/
     }
 
+    protected ContentProviderOperation.Builder buildCategory(ContentProviderOperation.Builder builder, Categories category) {
+        return builder.withValue(TaskContract.Property.Category.CATEGORY_NAME, category.getValue())
+                .withValue(TaskContract.Property.Category.MIMETYPE, "vnd.android.cursor.item/category");
+
+    }
+
+    protected Uri propertyUri() throws RecordNotFoundException {
+        List<Uri> uris= todoURI(ctx,account, TaskContract.Properties.CONTENT_URI_PATH);
+        if(uris.isEmpty()){
+            throw  new RecordNotFoundException("No Taskprovider found");
+        }
+        return uris.get(0);
+    }
+
+
     @Override
-    protected void removeDataRows(Resource resource) {
-        //TODO
+    protected void removeDataRows(Resource resource) throws LocalStorageException{
+        try {
+            @Cleanup Cursor c = providerClient.query(propertyUri(), new String[]{TaskContract.Property.Category.CATEGORY_ID},
+                    TaskContract.Properties.MIMETYPE + "=? AND " + TaskContract.Properties.TASK_ID + "=?",
+                    new String[]{"vnd.android.cursor.item/category", String.valueOf(resource.getLocalID())}, null);
+            while (c.moveToNext()) {
+                long id=c.getLong(0);
+                pendingOperations.add(
+                        ContentProviderOperation.newDelete(ContentUris.withAppendedId(propertyUri(), c.getLong(0))).build());
+            }
+        }catch (RemoteException e){
+            throw new LocalStorageException("Something went wrong while deleting categories",e);
+        }
+
     }
 
     private Uri alarmUri() throws RecordNotFoundException {
