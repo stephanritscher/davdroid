@@ -402,7 +402,7 @@ public class WebDavResource {
 			}
 	}
 	
-	protected static void checkResponse(StatusLine statusLine) throws HttpException {
+	protected void checkResponse(StatusLine statusLine) throws HttpException {
 		int code = statusLine.getStatusCode();
 		
 		if (code/100 == 1 || code/100 == 2)		// everything OK
@@ -411,6 +411,7 @@ public class WebDavResource {
 		String reason = code + " " + statusLine.getReasonPhrase();
 		switch (code) {
 		case HttpStatus.SC_NOT_FOUND:
+            Log.wtf(TAG,location.toString());
 			throw new NotFoundException(reason);
 		case HttpStatus.SC_PRECONDITION_FAILED:
 			throw new PreconditionFailedException(reason);

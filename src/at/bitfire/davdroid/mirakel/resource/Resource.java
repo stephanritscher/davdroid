@@ -30,7 +30,7 @@ public abstract class Resource {
 
 	
 	public Resource(String name, String ETag) {
-		this.name = name;
+		this.name = name==null?null:name.replace(".ics","");
 		this.ETag = ETag;
 	}
 	

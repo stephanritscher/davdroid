@@ -206,9 +206,6 @@ public class ToDo extends Resource {
         }
         Log.d(TAG,"parsed VTODO");
         alarms=todo.getAlarms();
-
-
-        Log.i(TAG, "Parsed iCal: " + ical.toString());
     }
 
 
@@ -220,8 +217,9 @@ public class ToDo extends Resource {
         ByteArrayOutputStream os=null;
         VToDo todo = new VToDo();
         PropertyList props = todo.getProperties();
-        if (uid != null)
+        if (uid != null) {
             props.add(new Uid(uid));
+        }
 
         if(dtStart!=null)
             props.add(dtStart);
@@ -263,7 +261,6 @@ public class ToDo extends Resource {
         if(status.getValue().equals(Status.VTODO_COMPLETED)){
             props.add(new Completed(new DateTime(new java.util.Date())));
         }
-
         ical.getComponents().add(todo);
         try {
             CalendarOutputter output = new CalendarOutputter(false);
