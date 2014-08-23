@@ -70,3 +70,7 @@ build/
 
 #temp files
 *~
+
+#keystore
+keystore
+keystore.properties
