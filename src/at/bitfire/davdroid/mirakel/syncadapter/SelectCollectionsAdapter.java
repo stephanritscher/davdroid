@@ -92,7 +92,7 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 
 	@Override
 	public int getViewTypeCount() {
-		return 4;
+		return 6;
 	}
 
 	@Override
