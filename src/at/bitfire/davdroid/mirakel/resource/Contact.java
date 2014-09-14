@@ -100,6 +100,16 @@ public class Contact extends Resource {
 	@Getter private List<String> categories = new LinkedList<String>();
 	@Getter private List<String> URLs = new LinkedList<String>();
 
+    @Override
+    public void setName(String name) {
+        this.name=name!=null?name.replace(".vcf",""):null;
+    }
+
+    @Override
+    public String getName() {
+        return name==null?name:name+".vcf";
+    }
+
 
 	/* instance methods */
 	

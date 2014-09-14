@@ -104,6 +104,16 @@ public class ToDo extends Resource {
 
     @Getter	@Setter private Due due;
 
+    @Override
+    public void setName(String name) {
+        this.name=name!=null?name.replace(".ics",""):null;
+    }
+
+    @Override
+    public String getName() {
+        return name==null?name:name+".ics";
+    }
+
     public ToDo(String name, String ETag){
         super(name,ETag);
     }

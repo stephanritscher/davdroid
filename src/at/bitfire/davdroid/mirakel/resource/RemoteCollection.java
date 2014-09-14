@@ -90,7 +90,7 @@ public abstract class RemoteCollection<T extends Resource> {
 			
 			LinkedList<String> names = new LinkedList<String>();
 			for (Resource resource : resources) {
-                names.add(resource.getName()+".ics");
+                names.add(resource.getName());
             }
 			LinkedList<T> foundResources = new LinkedList<T>();
 			collection.multiGet(multiGetType(), names.toArray(new String[0]));
@@ -124,7 +124,7 @@ public abstract class RemoteCollection<T extends Resource> {
 	/* internal member operations */
 
 	public Resource get(Resource resource) throws IOException, HttpException, DavException, InvalidResourceException {
-		WebDavResource member = new WebDavResource(collection, resource.getName()+".ics");
+		WebDavResource member = new WebDavResource(collection, resource.getName());
 		member.get();
 		
 		byte[] data = member.getContent();
@@ -141,7 +141,7 @@ public abstract class RemoteCollection<T extends Resource> {
 	}
 	
 	public String add(Resource res) throws IOException, HttpException, ValidationException {
-		WebDavResource member = new WebDavResource(collection, res.getName()+".ics", res.getETag());
+		WebDavResource member = new WebDavResource(collection, res.getName(), res.getETag());
 		member.setContentType(memberContentType());
 		
 		@Cleanup ByteArrayOutputStream os = res.toEntity();
@@ -152,14 +152,14 @@ public abstract class RemoteCollection<T extends Resource> {
 	}
 
 	public void delete(Resource res) throws IOException, HttpException {
-		WebDavResource member = new WebDavResource(collection, res.getName()+".ics", res.getETag());
+		WebDavResource member = new WebDavResource(collection, res.getName(), res.getETag());
 		member.delete();
 		
 		collection.invalidateCTag();
 	}
 	
 	public String update(Resource res) throws IOException, HttpException, ValidationException {
-		WebDavResource member = new WebDavResource(collection, res.getName()+".ics", res.getETag());
+		WebDavResource member = new WebDavResource(collection, res.getName(), res.getETag());
 		member.setContentType(memberContentType());
 		
 		@Cleanup ByteArrayOutputStream os = res.toEntity();

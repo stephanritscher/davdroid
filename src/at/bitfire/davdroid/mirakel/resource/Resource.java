@@ -24,13 +24,16 @@ import lombok.ToString;
  */
 @ToString
 public abstract class Resource {
-	@Getter @Setter protected String name, ETag;
+	protected String name;
+    @Getter @Setter protected String ETag;
 	@Getter @Setter protected String uid;
 	@Getter protected long localID;
 
+    public abstract void setName(final String name);
+    public abstract String getName();
 	
 	public Resource(String name, String ETag) {
-		this.name = name==null?null:name.replace(".ics","");
+		setName(name);
 		this.ETag = ETag;
 	}
 	

@@ -94,9 +94,19 @@ public class Event extends Resource {
 	public void addAlarm(VAlarm alarm) {
 		alarms.add(alarm);
 	}
-	
 
-	public Event(String name, String ETag) {
+
+    @Override
+    public void setName(String name) {
+        this.name=name!=null?name.replace(".ics",""):null;
+    }
+
+    @Override
+    public String getName() {
+        return name==null?name:name+".ics";
+    }
+
+    public Event(String name, String ETag) {
 		super(name, ETag);
 	}
 	
@@ -108,7 +118,7 @@ public class Event extends Resource {
 	@Override
 	public void initialize() {
 		generateUID();
-		name = uid.replace("@", "_") + ".ics";
+		name = uid.replace("@", "_");
 	}
 	
 	protected void generateUID() {
