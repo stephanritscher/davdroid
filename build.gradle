@@ -3,7 +3,7 @@ buildscript {
 		mavenCentral()
 	 }
 	dependencies {
-		classpath 'com.android.tools.build:gradle:0.12+'
+		classpath 'com.android.tools.build:gradle:0.12.2'
     }
 }
 allprojects {
@@ -16,7 +16,7 @@ allprojects {
         }
     }
 }
-apply plugin: 'android'
+apply plugin: 'com.android.application'
 
 android {
     buildToolsVersion '20.0.0'
@@ -66,12 +66,24 @@ android {
                 assets.srcDirs = ['assets']
             }
             instrumentTest.setRoot('tests')
-        }
+    }
+}
+
+configurations {
+    compile.exclude module: 'stax'
+    compile.exclude module: 'stax-api'
+    compile.exclude module: 'xpp3'
 }
 
 dependencies {
     compile 'com.android.support:appcompat-v7:20.0.0'
     compile 'com.android.support:support-v4:20.0.0'
     compile fileTree(dir: 'libs')
+    compile 'org.simpleframework:simple-xml:2.7.1'
+    compile 'com.googlecode.ez-vcard:ez-vcard:0.9.5'
+    //compile 'org.mnode.ical4j:ical4j:1.0.5.2'
+    compile 'commons-io:commons-io:2.4'
+    compile 'commons-lang:commons-lang:2.6'
+    compile 'org.apache.commons:commons-lang3:3.3.2'
     provided 'org.projectlombok:lombok:1.12.2'
 }
