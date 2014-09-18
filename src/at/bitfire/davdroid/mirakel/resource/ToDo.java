@@ -44,6 +44,7 @@ import net.fortuna.ical4j.model.property.Version;
 import net.fortuna.ical4j.util.SimpleHostInfo;
 import net.fortuna.ical4j.util.UidGenerator;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -81,7 +82,7 @@ public class ToDo extends Resource {
     @Getter @Setter private Completed dateCompleted;
 
     @Getter
-    private List<Categories> categories=new LinkedList<Categories>();
+    private PropertyList categories= new PropertyList();
     public void addCategorie(Categories categorie) {
         categories.add(categorie);
     }
@@ -137,10 +138,19 @@ public class ToDo extends Resource {
 
     @Override
     public void parseEntity(@NonNull InputStream entity) throws IOException, InvalidResourceException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int length = 0;
+        while ((length = entity.read(buffer)) != -1) {
+            baos.write(buffer, 0, length);
+        }
+        byte[] bytes= baos.toByteArray();
+        String str = new String(bytes, "UTF-8");
+        Log.d(TAG,str);
         net.fortuna.ical4j.model.Calendar ical;
         try {
             CalendarBuilder builder = new CalendarBuilder();
-            ical = builder.build(entity);
+            ical = builder.build(new ByteArrayInputStream(bytes));
 
             if (ical == null)
                 throw new InvalidResourceException("No iCalendar found");

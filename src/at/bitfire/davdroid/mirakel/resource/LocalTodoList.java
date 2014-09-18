@@ -16,6 +16,7 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import net.fortuna.ical4j.model.DateTime;
+import net.fortuna.ical4j.model.Property;
 import net.fortuna.ical4j.model.property.Categories;
 import net.fortuna.ical4j.model.property.Completed;
 import net.fortuna.ical4j.model.property.PercentComplete;
@@ -27,6 +28,7 @@ import org.dmfs.provider.tasks.TaskContract;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TimeZone;
@@ -282,21 +284,19 @@ public class LocalTodoList extends LocalCollection<ToDo> {
 
     @Override
     protected void addDataRows(Resource resource, long localID, int backrefIdx) throws RecordNotFoundException {
-        ToDo todo = (ToDo) resource;
-        for (Categories category : todo.getCategories()) {
-            pendingOperations.add(buildCategory(
-                    newDataInsertBuilder(propertyUri(), TaskContract.Properties.TASK_ID, localID, backrefIdx), category)
-                    .build());
+        final ToDo todo = (ToDo) resource;
+        for (final Property category : todo.getCategories()) {
+            final Iterator categoryList =((Categories)category).getCategories().iterator();
+            while (categoryList.hasNext()){
+                pendingOperations.add(buildCategory(
+                        newDataInsertBuilder(propertyUri(), TaskContract.Properties.TASK_ID, localID, backrefIdx), (String) categoryList.next())
+                        .build());
+            }
         }
-        /*for (VAlarm alarm : todo.getAlarms())
-            pendingOperations.add(buildReminder(
-                    newDataInsertBuilder(alarmUri(),
-                            TaskContract.Alarms., localID, backrefIdx), alarm)
-                    .build());*/
     }
 
-    protected ContentProviderOperation.Builder buildCategory(ContentProviderOperation.Builder builder, Categories category) {
-        return builder.withValue(TaskContract.Property.Category.CATEGORY_NAME, category.getValue())
+    protected ContentProviderOperation.Builder buildCategory(ContentProviderOperation.Builder builder, String category) {
+        return builder.withValue(TaskContract.Property.Category.CATEGORY_NAME, category)
                 .withValue(TaskContract.Property.Category.MIMETYPE, "vnd.android.cursor.item/category");
 
     }
