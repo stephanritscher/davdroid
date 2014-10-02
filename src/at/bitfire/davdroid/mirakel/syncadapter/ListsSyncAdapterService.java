@@ -71,8 +71,10 @@ public class ListsSyncAdapterService extends Service {
 			try {
 				Map<LocalCollection<?>, RemoteCollection<?>> map = new HashMap<LocalCollection<?>, RemoteCollection<?>>();
 				for (LocalTodoList todoList : LocalTodoList.findAll(account, provider,ctx)) {
-					RemoteCollection<?> dav = new CalDavList(httpClient, todoList.getUrl(), userName, password, preemptive);
-					map.put(todoList, dav);
+                    if(todoList.getUrl()!=null) {
+                        RemoteCollection<?> dav = new CalDavList(httpClient, todoList.getUrl(), userName, password, preemptive);
+                        map.put(todoList, dav);
+                    }
 				}
 				return map;
 			} catch (RemoteException ex) {
