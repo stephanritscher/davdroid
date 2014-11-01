@@ -328,8 +328,10 @@ public class WebDavResource {
 	
 	/* resource operations */
 	
-	public void get() throws IOException, HttpException, DavException {
+	public void get(String acceptedType) throws IOException, HttpException, DavException {
 		HttpGet get = new HttpGet(location);
+		get.addHeader("Accept", acceptedType);
+		
 		CloseableHttpResponse response = httpClient.execute(get, context);
 		try {
 			checkResponse(response);
@@ -410,6 +412,8 @@ public class WebDavResource {
 		
 		String reason = code + " " + statusLine.getReasonPhrase();
 		switch (code) {
+		case HttpStatus.SC_UNAUTHORIZED:
+			throw new NotAuthorizedException(reason);
 		case HttpStatus.SC_NOT_FOUND:
             Log.wtf(TAG,location.toString());
 			throw new NotFoundException(reason);

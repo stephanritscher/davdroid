@@ -11,12 +11,15 @@ import ch.boye.httpclientandroidlib.impl.client.CloseableHttpClient;
 import ezvcard.VCardVersion;
 import android.content.Context;
 import android.util.Log;
+
 import at.bitfire.davdroid.mirakel.R;
 import at.bitfire.davdroid.mirakel.webdav.DavException;
 import at.bitfire.davdroid.mirakel.webdav.DavHttpClient;
 import at.bitfire.davdroid.mirakel.webdav.DavIncapableException;
+import at.bitfire.davdroid.mirakel.webdav.NotAuthorizedException;
 import at.bitfire.davdroid.mirakel.webdav.WebDavResource;
 import at.bitfire.davdroid.mirakel.webdav.HttpPropfind.Mode;
+
 
 public class DavResourceFinder {
 	private final static String TAG = "davdroid.DavResourceFinder";
@@ -148,23 +151,35 @@ public class DavResourceFinder {
 	 * @param serviceName	Well-known service name ("carddav", "caldav")
 	 * @return	WebDavResource of current-user-principal for the given service, or null if it can't be found
 	 */
-	private static WebDavResource getCurrentUserPrincipal(WebDavResource resource, String serviceName) throws IOException, HttpException, DavException {
+	private static WebDavResource getCurrentUserPrincipal(WebDavResource resource, String serviceName) throws IOException, NotAuthorizedException {
 		// look for well-known service (RFC 5785)
 		try {
 			WebDavResource wellKnown = new WebDavResource(resource, "/.well-known/" + serviceName);
 			wellKnown.propfind(Mode.CURRENT_USER_PRINCIPAL);
 			if (wellKnown.getCurrentUserPrincipal() != null)
 				return new WebDavResource(wellKnown, wellKnown.getCurrentUserPrincipal());
+		} catch (NotAuthorizedException e) {
+			Log.d(TAG, "Well-known " + serviceName + " service detection not authorized", e);
+			throw e;
 		} catch (HttpException e) {
-			Log.d(TAG, "Well-known service detection failed with HTTP error", e);
+			Log.d(TAG, "Well-known " + serviceName + " service detection failed with HTTP error", e);
 		} catch (DavException e) {
-			Log.d(TAG, "Well-known service detection failed at DAV level", e);
+			Log.d(TAG, "Well-known " + serviceName + " service detection failed at DAV level", e);
 		}
 
-		// fall back to user-given initial context path 
-		resource.propfind(Mode.CURRENT_USER_PRINCIPAL);
-		if (resource.getCurrentUserPrincipal() != null)
-			return new WebDavResource(resource, resource.getCurrentUserPrincipal());
+		// fall back to user-given initial context path
+		try {
+			resource.propfind(Mode.CURRENT_USER_PRINCIPAL);
+			if (resource.getCurrentUserPrincipal() != null)
+				return new WebDavResource(resource, resource.getCurrentUserPrincipal());
+		} catch (NotAuthorizedException e) {
+			Log.d(TAG, "Not authorized for querying principal for " + serviceName + " service", e);
+			throw e;
+		} catch (HttpException e) {
+			Log.d(TAG, "HTTP error when querying principal for " + serviceName + " service", e);
+		} catch (DavException e) {
+			Log.d(TAG, "DAV error when querying principal for " + serviceName + " service", e);
+		}
 		return null;
 	}
 	

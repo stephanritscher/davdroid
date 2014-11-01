@@ -29,6 +29,7 @@ import android.content.SharedPreferences;
 import android.content.SyncResult;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Debug;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.Log;
@@ -123,7 +124,6 @@ public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter impleme
 		// TODO use VCard 4.0 if possible
 		AccountSettings accountSettings = new AccountSettings(getContext(), account);
 		Log.d(TAG, "Server supports VCard version " + accountSettings.getAddressBookVCardVersion());
-
 		try {
 			// get local <-> remote collection pairs
 			Map<LocalCollection<?>, RemoteCollection<?>> syncCollections = getSyncPairs(account, provider);
