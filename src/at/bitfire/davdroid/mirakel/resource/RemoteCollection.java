@@ -126,11 +126,13 @@ public abstract class RemoteCollection<T extends Resource> {
 	public Resource get(Resource resource) throws IOException, HttpException, DavException, InvalidResourceException {
 		WebDavResource member = new WebDavResource(collection, resource.getName());
 		
-		if (resource instanceof Contact)
-			member.get(Contact.MIME_TYPE);
-		else if (resource instanceof Event)
-			member.get(Event.MIME_TYPE);
-		else {
+		if (resource instanceof Contact) {
+            member.get(Contact.MIME_TYPE);
+        }else if (resource instanceof Event) {
+            member.get(Event.MIME_TYPE);
+        }else if(resource instanceof ToDo){
+            member.get(ToDo.MIME_TYPE);
+        }else {
 			Log.wtf(TAG, "Should fetch something, but neither contact nor calendar");
 			throw new InvalidResourceException("Didn't now which MIME type to accept");
 		}

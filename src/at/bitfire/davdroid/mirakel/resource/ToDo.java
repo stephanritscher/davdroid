@@ -62,6 +62,7 @@ import lombok.Setter;
 public class ToDo extends Resource {
     private final static String TAG="ToDo";
     private final static TimeZoneRegistry tzRegistry = new DefaultTimeZoneRegistryFactory().createRegistry();
+    public final static String MIME_TYPE = "text/calendar";
 
     @Getter
     @Setter

@@ -10,6 +10,8 @@
  ******************************************************************************/
 package at.bitfire.davdroid.mirakel;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,7 +23,32 @@ public class URIUtils {
 	private static final String TAG = "davdroid.URIUtils";
 
 	
-	// handles invalid URLs/paths as good as possible
+	public static String ensureTrailingSlash(String href) {
+		if (!href.endsWith("/")) {
+			Log.d(TAG, "Implicitly appending trailing slash to collection " + href);
+			return href + "/";
+		} else
+			return href;
+	}
+	
+	public static URI ensureTrailingSlash(URI href) {
+		if (!href.getPath().endsWith("/"))
+			try {
+				URI newURI = new URI(href.getScheme(), href.getAuthority(), href.getPath() + "/", href.getQuery(), null);
+				
+				// "@" is the only character that is not encoded
+				newURI = new URI(newURI.toString().replaceAll("@", "%40"));
+				
+				Log.d(TAG, "Implicitly appending trailing slash to collection " + href + " -> " + newURI);
+				return newURI;
+			} catch (URISyntaxException e) {
+				Log.e(TAG, "Couldn't append trailing slash to collection URI", e);
+			}
+		return href;
+	}
+
+
+	/** handles invalid URLs/paths as good as possible **/
 	public static String sanitize(String original) {
 		if (original == null)
 			return null;
@@ -70,4 +97,5 @@ public class URIUtils {
 			
 		}
 	}
+
 }
