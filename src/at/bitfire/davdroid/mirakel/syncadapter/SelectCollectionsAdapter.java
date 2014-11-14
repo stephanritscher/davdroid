@@ -10,7 +10,6 @@
  ******************************************************************************/
 package at.bitfire.davdroid.mirakel.syncadapter;
 
-import lombok.Getter;
 import android.content.Context;
 import android.text.Html;
 import android.util.Log;
@@ -20,8 +19,11 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.CheckedTextView;
 import android.widget.ListAdapter;
+
 import at.bitfire.davdroid.mirakel.R;
 import at.bitfire.davdroid.mirakel.resource.ServerInfo;
+import lombok.Getter;
+
 
 public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter {
 	final static int TYPE_ADDRESS_BOOKS_HEADING = 0,
@@ -163,9 +165,13 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 		view.setCompoundDrawablePadding(10);
 		
 		// set text		
-		String title = "<b>" + info.getTitle() + "</b>";
+		String title = info.getTitle();
+		if (title == null)		// unnamed collection
+			title = context.getString((info.getType() == ServerInfo.ResourceInfo.Type.ADDRESS_BOOK) ?
+					R.string.setup_address_book : R.string.setup_calendar);
+		title = "<b>" + title + "</b>";
 		if (info.isReadOnly())
-			title = title + " (" + context.getString(R.string.read_only) + ")";
+			title = title + " (" + context.getString(R.string.setup_read_only) + ")";
 		
 		String description = info.getDescription();
 		if (description == null)

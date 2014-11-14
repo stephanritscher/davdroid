@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="fill_parent"
-    android:layout_height="fill_parent" >
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" >
 
     <GridLayout
         android:layout_width="fill_parent"
@@ -14,40 +14,42 @@
         <TextView
             android:layout_columnSpan="2"
             android:layout_gravity="start"
-            android:text="@string/root_url"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/login_base_url" />
 
         <Spinner
-            android:id="@+id/select_protocol"
+            android:id="@+id/login_scheme"
             android:layout_width="wrap_content"
             android:layout_gravity="start"
-            android:entries="@array/http_protocols" />
+            android:entries="@array/login_url_scheme" />
 
         <EditText
-            android:id="@+id/baseURL"
-            android:layout_width="0dp"
+            android:id="@+id/login_host_path"
             android:layout_gravity="fill_horizontal"
-            android:hint="my.server.com"
             android:imeOptions="flagForceAscii|actionNext"
             android:inputType="textUri"
+            android:layout_width="0dp"
             android:scrollHorizontally="true"
             android:scrollbars="horizontal"
-            android:text="" />
+            android:hint="my.webhost.com">
+            <requestFocus />
+        </EditText>
 
         <TextView
             android:id="@+id/http_warning"
+            android:textAppearance="?android:attr/textAppearanceMedium"
             android:layout_width="fill_parent"
             android:layout_columnSpan="2"
             android:layout_gravity="start"
             android:drawableLeft="@drawable/alerts_and_states_warning"
+            android:drawableStart="@drawable/alerts_and_states_warning"
             android:drawablePadding="10dp"
             android:padding="10dp"
-            android:text="@string/http_warning"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
+            android:text="@string/login_http_warning" />
 
         <TextView
-            android:text="@string/user_name"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/login_user_name" />
 
         <EditText
             android:id="@+id/userName"
@@ -60,8 +62,8 @@
             android:text="" />
 
         <TextView
-            android:text="@string/password"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/login_password" />
 
         <EditText
             android:id="@+id/password"
@@ -72,15 +74,16 @@
             android:scrollHorizontally="true"
             android:scrollbars="horizontal"
             android:text="" />
-
+        
         <CheckBox
             android:id="@+id/auth_preemptive"
             android:layout_columnSpan="2"
-            android:layout_gravity="start"
             android:checked="true"
-            android:text="@string/auth_preemptive" />
-
+            android:layout_gravity="start"
+            android:text="@string/login_auth_preemptive" />
+        
         <Space android:layout_gravity="start|top" />
+        
     </GridLayout>
 
 </ScrollView>

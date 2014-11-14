@@ -4,22 +4,19 @@
  * are made available under the terms of the GNU Public License v3.0
  * which accompanies this distribution, and is available at
  * http://www.gnu.org/licenses/gpl.html
- * 
- * Contributors:
- *     Richard Hirner (bitfire web engineering) - initial API and implementation
  ******************************************************************************/
 package at.bitfire.davdroid.mirakel;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import android.annotation.SuppressLint;
 import android.util.Log;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @SuppressLint("DefaultLocale")
-public class URIUtils {
+public class URLUtils {
 	private static final String TAG = "davdroid.URIUtils";
 
 	
@@ -31,17 +28,17 @@ public class URIUtils {
 			return href;
 	}
 	
-	public static URI ensureTrailingSlash(URI href) {
+	public static URL ensureTrailingSlash(URL href) {
 		if (!href.getPath().endsWith("/"))
 			try {
-				URI newURI = new URI(href.getScheme(), href.getAuthority(), href.getPath() + "/", href.getQuery(), null);
+				URL newURL = new URL(href, href.getPath() + "/");
 				
 				// "@" is the only character that is not encoded
-				newURI = new URI(newURI.toString().replaceAll("@", "%40"));
+				//newURL = new URI(newURI.toString().replaceAll("@", "%40"));
 				
-				Log.d(TAG, "Implicitly appending trailing slash to collection " + href + " -> " + newURI);
-				return newURI;
-			} catch (URISyntaxException e) {
+				Log.d(TAG, "Implicitly appending trailing slash to collection " + href + " -> " + newURL);
+				return newURL;
+			} catch (MalformedURLException e) {
 				Log.e(TAG, "Couldn't append trailing slash to collection URI", e);
 			}
 		return href;

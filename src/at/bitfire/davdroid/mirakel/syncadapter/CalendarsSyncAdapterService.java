@@ -10,7 +10,7 @@
  ******************************************************************************/
 package at.bitfire.davdroid.mirakel.syncadapter;
 
-import java.net.URISyntaxException;
+import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -73,7 +73,7 @@ public class CalendarsSyncAdapterService extends Service {
 				return map;
 			} catch (RemoteException ex) {
 				Log.e(TAG, "Couldn't find local calendars", ex);
-			} catch (URISyntaxException ex) {
+			} catch (MalformedURLException ex) {
 				Log.e(TAG, "Couldn't build calendar URI", ex);
 			}
 			

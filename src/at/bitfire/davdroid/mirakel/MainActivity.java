@@ -23,6 +23,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 import at.bitfire.davdroid.mirakel.syncadapter.GeneralSettingsActivity;
+import at.bitfire.davdroid.mirakel.syncadapter.AddAccountActivity;
 
 public class MainActivity extends Activity {
 
@@ -53,7 +54,7 @@ public class MainActivity extends Activity {
 
 	
 	public void addAccount(MenuItem item) {
-		Intent intent = new Intent(Settings.ACTION_ADD_ACCOUNT);
+		Intent intent = new Intent(this, AddAccountActivity.class);
 		startActivity(intent);
 	}
 	

@@ -1,7 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2014 Ricki Hirner (bitfire web engineering).
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the GNU Public License v3.0
+ * which accompanies this distribution, and is available at
+ * http://www.gnu.org/licenses/gpl.html
+ ******************************************************************************/
 package at.bitfire.davdroid.mirakel.webdav;
 
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 
 import android.util.Log;
 import ch.boye.httpclientandroidlib.Header;
@@ -66,7 +75,7 @@ public class DavRedirectStrategy implements RedirectStrategy {
 	 * Gets the destination of a redirection 
 	 * @return absolute URL of new location; null if not available
 	 */
-	static URI getLocation(HttpRequest request, HttpResponse response, HttpContext context) {
+	static URL getLocation(HttpRequest request, HttpResponse response, HttpContext context) {
 		Header locationHdr = response.getFirstHeader("Location");
 		if (locationHdr == null) {
 			Log.e(TAG, "Received redirection without Location header, ignoring");
@@ -86,10 +95,12 @@ public class DavRedirectStrategy implements RedirectStrategy {
 					else
 						return null;
 				}
-				location = originalURI.resolve(location);
+				return new URL(originalURI.toURL(), location.toString());
 			}
-			return location;
+			return location.toURL();
 		} catch (URISyntaxException e) {
+			Log.e(TAG, "Received redirection from/to invalid URI, ignoring", e);
+		} catch (MalformedURLException e) {
 			Log.e(TAG, "Received redirection from/to invalid URL, ignoring", e);
 		}
 		return null;

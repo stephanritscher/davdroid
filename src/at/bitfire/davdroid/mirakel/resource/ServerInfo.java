@@ -11,6 +11,7 @@
 package at.bitfire.davdroid.mirakel.resource;
 
 import java.io.Serializable;
+import java.net.URI;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -23,7 +24,11 @@ import lombok.RequiredArgsConstructor;
 public class ServerInfo implements Serializable {
 	private static final long serialVersionUID = 6744847358282980437L;
 	
-	final private String providedURL;
+	enum Scheme {
+		HTTP, HTTPS, MAILTO
+	}
+	
+	final private URI baseURI;
 	final private String userName, password;
 	final boolean authPreemptive;
 	
@@ -49,7 +54,7 @@ public class ServerInfo implements Serializable {
 	public static class ResourceInfo implements Serializable {
 		private static final long serialVersionUID = -5516934508229552112L;
 		
-		enum Type {
+		public enum Type {
 			ADDRESS_BOOK,
 			CALENDAR,
             TODO_LIST

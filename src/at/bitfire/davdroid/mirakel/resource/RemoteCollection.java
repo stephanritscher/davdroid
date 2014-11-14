@@ -14,8 +14,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -49,16 +50,16 @@ public abstract class RemoteCollection<T extends Resource> {
 	abstract protected DavMultiget.Type multiGetType();
 	abstract protected T newResourceSkeleton(String name, String ETag);
 	
-	public RemoteCollection(CloseableHttpClient httpClient, String baseURL, String user, String password, boolean preemptiveAuth) throws URISyntaxException {
+	public RemoteCollection(CloseableHttpClient httpClient, String baseURL, String user, String password, boolean preemptiveAuth) throws MalformedURLException {
 		this.httpClient = httpClient;
 		
-		collection = new WebDavResource(httpClient, new URI(baseURL), user, password, preemptiveAuth);
+		collection = new WebDavResource(httpClient, new URL(baseURL), user, password, preemptiveAuth);
 	}
 
 	
 	/* collection operations */
 
-	public String getCTag() throws IOException, HttpException {
+	public String getCTag() throws URISyntaxException, IOException, HttpException {
 		try {
 			if (collection.getCTag() == null && collection.getMembers() == null)	// not already fetched
 				collection.propfind(HttpPropfind.Mode.COLLECTION_CTAG);
@@ -68,7 +69,7 @@ public abstract class RemoteCollection<T extends Resource> {
 		return collection.getCTag();
 	}
 	
-	public Resource[] getMemberETags() throws IOException, DavException, HttpException {
+	public Resource[] getMemberETags() throws URISyntaxException, IOException, DavException, HttpException {
 		collection.propfind(HttpPropfind.Mode.MEMBERS_ETAG);
 			
 		List<T> resources = new LinkedList<T>();
@@ -80,7 +81,7 @@ public abstract class RemoteCollection<T extends Resource> {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public Resource[] multiGet(Resource[] resources) throws IOException, DavException, HttpException {
+	public Resource[] multiGet(Resource[] resources) throws URISyntaxException, IOException, DavException, HttpException {
 		try {
 			if (resources.length == 1) {
                 return new Resource[]{get(resources[0])};
@@ -123,7 +124,7 @@ public abstract class RemoteCollection<T extends Resource> {
 	
 	/* internal member operations */
 
-	public Resource get(Resource resource) throws IOException, HttpException, DavException, InvalidResourceException {
+	public Resource get(Resource resource) throws URISyntaxException, IOException, HttpException, DavException, InvalidResourceException {
 		WebDavResource member = new WebDavResource(collection, resource.getName());
 		
 		if (resource instanceof Contact) {
@@ -150,7 +151,8 @@ public abstract class RemoteCollection<T extends Resource> {
 		return resource;
 	}
 	
-	public String add(Resource res) throws IOException, HttpException, ValidationException {
+	// returns ETag of the created resource, if returned by server
+	public String add(Resource res) throws URISyntaxException, IOException, HttpException, ValidationException {
 		WebDavResource member = new WebDavResource(collection, res.getName(), res.getETag());
 		member.setContentType(memberContentType());
 		
@@ -161,14 +163,15 @@ public abstract class RemoteCollection<T extends Resource> {
 		return eTag;
 	}
 
-	public void delete(Resource res) throws IOException, HttpException {
+	public void delete(Resource res) throws URISyntaxException, IOException, HttpException {
 		WebDavResource member = new WebDavResource(collection, res.getName(), res.getETag());
 		member.delete();
 		
 		collection.invalidateCTag();
 	}
 	
-	public String update(Resource res) throws IOException, HttpException, ValidationException {
+	// returns ETag of the updated resource, if returned by server
+	public String update(Resource res) throws URISyntaxException, IOException, HttpException, ValidationException {
 		WebDavResource member = new WebDavResource(collection, res.getName(), res.getETag());
 		member.setContentType(memberContentType());
 		

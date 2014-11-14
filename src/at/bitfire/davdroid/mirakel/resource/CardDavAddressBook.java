@@ -10,7 +10,7 @@
  ******************************************************************************/
 package at.bitfire.davdroid.mirakel.resource;
 
-import java.net.URISyntaxException;
+import java.net.MalformedURLException;
 
 import ch.boye.httpclientandroidlib.impl.client.CloseableHttpClient;
 import at.bitfire.davdroid.mirakel.webdav.DavMultiget;
@@ -34,7 +34,7 @@ public class CardDavAddressBook extends RemoteCollection<Contact> {
 	}
 	
 
-	public CardDavAddressBook(CloseableHttpClient httpClient, String baseURL, String user, String password, boolean preemptiveAuth) throws URISyntaxException {
+	public CardDavAddressBook(CloseableHttpClient httpClient, String baseURL, String user, String password, boolean preemptiveAuth) throws MalformedURLException {
 		super(httpClient, baseURL, user, password, preemptiveAuth);
 	}
 }

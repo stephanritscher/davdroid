@@ -19,13 +19,11 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
 
-import java.net.URISyntaxException;
+import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.Map;
 
-import at.bitfire.davdroid.mirakel.resource.CalDavCalendar;
 import at.bitfire.davdroid.mirakel.resource.CalDavList;
-import at.bitfire.davdroid.mirakel.resource.LocalCalendar;
 import at.bitfire.davdroid.mirakel.resource.LocalCollection;
 import at.bitfire.davdroid.mirakel.resource.LocalTodoList;
 import at.bitfire.davdroid.mirakel.resource.RecordNotFoundException;
@@ -78,8 +76,8 @@ public class ListsSyncAdapterService extends Service {
 				}
 				return map;
 			} catch (RemoteException ex) {
-				Log.e(TAG, "Couldn't find local calendars", ex);
-			} catch (URISyntaxException ex) {
+				Log.e(TAG, "Couldn't find local todo list", ex);
+			} catch (MalformedURLException ex) {
 				Log.e(TAG, "Couldn't build calendar URI", ex);
 			}catch (RecordNotFoundException ex){
                 Log.e(TAG,"No Taskprovider found",ex);
