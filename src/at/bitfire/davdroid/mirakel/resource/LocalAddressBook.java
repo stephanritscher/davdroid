@@ -7,23 +7,6 @@
  ******************************************************************************/
 package at.bitfire.davdroid.mirakel.resource;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-
-import lombok.Cleanup;
-
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.WordUtils;
-
 import android.accounts.Account;
 import android.content.ContentProviderClient;
 import android.content.ContentProviderOperation;
@@ -53,6 +36,22 @@ import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.Groups;
 import android.provider.ContactsContract.RawContacts;
 import android.util.Log;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.WordUtils;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
 import at.bitfire.davdroid.mirakel.syncadapter.AccountSettings;
 import ezvcard.parameter.AddressType;
 import ezvcard.parameter.EmailType;
@@ -64,6 +63,7 @@ import ezvcard.property.Birthday;
 import ezvcard.property.DateOrTimeProperty;
 import ezvcard.property.Impp;
 import ezvcard.property.Telephone;
+import lombok.Cleanup;
 
 
 public class LocalAddressBook extends LocalCollection<Contact> {
@@ -665,6 +665,10 @@ public class LocalAddressBook extends LocalCollection<Contact> {
 		pendingOperations.add(ContentProviderOperation.newDelete(dataURI())
 				.withSelection(Data.RAW_CONTACT_ID + "=?",
 				new String[] { String.valueOf(resource.getLocalID()) }).build());
+        pendingOperations.add(ContentProviderOperation.newDelete(dataURI())
+                .withSelection(Data.MIMETYPE+"=? AND "+Data.CONTACT_ID+"=?",
+                        new String[]{GroupMembership.CONTENT_ITEM_TYPE,
+                                String.valueOf(resource.localID)}).build());
 	}
 
 
