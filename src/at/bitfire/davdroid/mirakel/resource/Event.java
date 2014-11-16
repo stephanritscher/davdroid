@@ -7,19 +7,9 @@
  ******************************************************************************/
 package at.bitfire.davdroid.mirakel.resource;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
-import java.util.Calendar;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.SimpleTimeZone;
-import java.util.TimeZone;
+import android.text.format.Time;
+import android.util.Log;
 
-import lombok.Getter;
-import lombok.NonNull;
-import lombok.Setter;
 import net.fortuna.ical4j.data.CalendarBuilder;
 import net.fortuna.ical4j.data.CalendarOutputter;
 import net.fortuna.ical4j.data.ParserException;
@@ -48,7 +38,6 @@ import net.fortuna.ical4j.model.property.ExRule;
 import net.fortuna.ical4j.model.property.LastModified;
 import net.fortuna.ical4j.model.property.Location;
 import net.fortuna.ical4j.model.property.Organizer;
-import net.fortuna.ical4j.model.property.ProdId;
 import net.fortuna.ical4j.model.property.RDate;
 import net.fortuna.ical4j.model.property.RRule;
 import net.fortuna.ical4j.model.property.Status;
@@ -58,10 +47,22 @@ import net.fortuna.ical4j.model.property.Uid;
 import net.fortuna.ical4j.model.property.Version;
 import net.fortuna.ical4j.util.SimpleHostInfo;
 import net.fortuna.ical4j.util.UidGenerator;
-import android.text.format.Time;
-import android.util.Log;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.util.Calendar;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.SimpleTimeZone;
+import java.util.TimeZone;
+
 import at.bitfire.davdroid.mirakel.Constants;
 import at.bitfire.davdroid.mirakel.syncadapter.DavSyncAdapter;
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.Setter;
 
 
 public class Event extends Resource {
@@ -213,7 +214,7 @@ public class Event extends Resource {
 	public ByteArrayOutputStream toEntity() throws IOException {
 		net.fortuna.ical4j.model.Calendar ical = new net.fortuna.ical4j.model.Calendar();
 		ical.getProperties().add(Version.VERSION_2_0);
-		ical.getProperties().add(new ProdId("-//bitfire web engineering//DAVdroid " + Constants.APP_VERSION + " (ical4j 1.0.x)//EN"));
+		ical.getProperties().add(Constants.PRODUCT_ID);
 		
 		VEvent event = new VEvent();
 		PropertyList props = event.getProperties();

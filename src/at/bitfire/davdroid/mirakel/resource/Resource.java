@@ -24,7 +24,7 @@ import lombok.ToString;
  */
 @ToString
 public abstract class Resource {
-	protected String name;
+    protected String name;
     @Getter @Setter protected String ETag;
 	@Getter @Setter protected String uid;
 	@Getter protected long localID;

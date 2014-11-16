@@ -10,6 +10,8 @@
  ******************************************************************************/
 package at.bitfire.davdroid.mirakel;
 
+import net.fortuna.ical4j.model.property.ProdId;
+
 public class Constants {
 	public static final String
 		APP_VERSION = "0.6.7-mirakel",
@@ -18,4 +20,5 @@ public class Constants {
 		
 		SETTING_DISABLE_COMPRESSION = "disable_compression",
 		SETTING_NETWORK_LOGGING = "network_logging";
+    public static final ProdId PRODUCT_ID = new ProdId("-//bitfire web engineering//DAVdroid " + Constants.APP_VERSION + " (ical4j 2.0.x)//EN");
 }

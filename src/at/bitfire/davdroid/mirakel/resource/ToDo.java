@@ -33,7 +33,6 @@ import net.fortuna.ical4j.model.property.Location;
 import net.fortuna.ical4j.model.property.Organizer;
 import net.fortuna.ical4j.model.property.PercentComplete;
 import net.fortuna.ical4j.model.property.Priority;
-import net.fortuna.ical4j.model.property.ProdId;
 import net.fortuna.ical4j.model.property.RDate;
 import net.fortuna.ical4j.model.property.RRule;
 import net.fortuna.ical4j.model.property.Status;
@@ -64,6 +63,7 @@ public class ToDo extends Resource {
     private final static TimeZoneRegistry tzRegistry = new DefaultTimeZoneRegistryFactory().createRegistry();
     public final static String MIME_TYPE = "text/calendar";
 
+
     @Getter
     @Setter
     private String summary, location, description;
@@ -84,19 +84,19 @@ public class ToDo extends Resource {
 
     @Getter
     private PropertyList categories= new PropertyList();
-    public void addCategorie(Categories categorie) {
+    public void addCategorie(final Categories categorie) {
         categories.add(categorie);
     }
 
     @Getter @Setter private Organizer organizer;
     @Getter private List<Attendee> attendees = new LinkedList<Attendee>();
 
-    public void addAttendee(Attendee attendee) {
+    public void addAttendee(final Attendee attendee) {
         attendees.add(attendee);
     }
 
     @Getter private List<VAlarm> alarms = new LinkedList<VAlarm>();
-    public void addAlarm(VAlarm alarm) {
+    public void addAlarm(final VAlarm alarm) {
         alarms.add(alarm);
     }
 
@@ -107,66 +107,67 @@ public class ToDo extends Resource {
     @Getter	@Setter private Due due;
 
     @Override
-    public void setName(String name) {
+    public void setName(final String name) {
         this.name=name!=null?name.replace(".ics",""):null;
     }
 
     @Override
     public String getName() {
-        return name==null?name:name+".ics";
+        return (name == null) ? name : (name + ".ics");
     }
 
-    public ToDo(String name, String ETag){
+    public ToDo(final String name, final String ETag){
         super(name,ETag);
     }
 
-    public ToDo(long localID, String name, String ETag){
+    public ToDo(final long localID, final String name, final String ETag){
         super(localID,name,ETag);
     }
 
     @Override
     public void initialize() {
         generateUID();
-        name = uid.replace("@", "_") + ".ics";
+        name = uid.replace("@", "_");
     }
 
 
 
     protected void generateUID() {
-        UidGenerator generator = new UidGenerator(new SimpleHostInfo(DavSyncAdapter.getAndroidID()), String.valueOf(android.os.Process.myPid()));
+        final UidGenerator generator = new UidGenerator(new SimpleHostInfo(DavSyncAdapter.getAndroidID()), String.valueOf(android.os.Process.myPid()));
         uid = generator.generateUid().getValue();
     }
 
     @Override
-    public void parseEntity(@NonNull InputStream entity) throws IOException, InvalidResourceException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        byte[] buffer = new byte[1024];
+    public void parseEntity(@NonNull final InputStream entity) throws InvalidResourceException, IOException {
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        final byte[] buffer = new byte[1024];
         int length = 0;
         while ((length = entity.read(buffer)) != -1) {
             baos.write(buffer, 0, length);
         }
-        byte[] bytes= baos.toByteArray();
-        String str = new String(bytes, "UTF-8");
+        final byte[] bytes= baos.toByteArray();
+        final String str = new String(bytes, "UTF-8");
         Log.d(TAG,str);
         net.fortuna.ical4j.model.Calendar ical;
         try {
-            CalendarBuilder builder = new CalendarBuilder();
+            final CalendarBuilder builder = new CalendarBuilder();
             ical = builder.build(new ByteArrayInputStream(bytes));
 
-            if (ical == null)
+            if (ical == null) {
                 throw new InvalidResourceException("No iCalendar found");
-        } catch (ParserException e) {
+            }
+        } catch (final ParserException e) {
             throw new InvalidResourceException(e);
         }
-        // ToDo
-        ComponentList todos = ical.getComponents(Component.VTODO);
-        if (todos == null || todos.isEmpty())
+
+        final ComponentList todos = ical.getComponents(Component.VTODO);
+        if ((todos == null) || todos.isEmpty())
             throw new InvalidResourceException("Maybe VEVENT or so");
 
-        VToDo todo = (VToDo) todos.get(0);
-        if (todo.getUid() != null)
+        final VToDo todo = (VToDo) todos.get(0);
+        if (todo.getUid() != null) {
             uid = todo.getUid().toString();
-        else {
+        } else {
             Log.w(TAG, "Received VTODO without UID, generating new one");
             generateUID();
         }
@@ -197,26 +198,31 @@ public class ToDo extends Resource {
             updated.setDate(new Date(new java.util.Date()));
         }
 
-        if (todo.getSummary() != null)
+        if (todo.getSummary() != null) {
             summary = todo.getSummary().getValue();
-        if (todo.getLocation() != null)
+        }
+        if (todo.getLocation() != null) {
             location = todo.getLocation().getValue();
-        if (todo.getDescription() != null)
+        }
+        if (todo.getDescription() != null) {
             description = todo.getDescription().getValue();
+        }
 
         status = todo.getStatus();
 
         organizer = todo.getOrganizer();
-        for (Object o : todo.getProperties(Property.ATTENDEE))
+        for (final Object o : todo.getProperties(Property.ATTENDEE)) {
             attendees.add((Attendee) o);
+        }
 
-        Clazz classification = todo.getClassification();
+        final Clazz classification = todo.getClassification();
         if (classification != null) {
-            if (classification == Clazz.PUBLIC)
+            if (classification == Clazz.PUBLIC) {
                 forPublic = true;
-            else if (classification == Clazz.CONFIDENTIAL
-                    || classification == Clazz.PRIVATE)
+            } else if ((classification == Clazz.CONFIDENTIAL)
+                    || (classification == Clazz.PRIVATE)) {
                 forPublic = false;
+            }
         }
 
         priority=todo.getPriority();
@@ -232,59 +238,75 @@ public class ToDo extends Resource {
 
     @Override
     public ByteArrayOutputStream toEntity() throws IOException {
-        net.fortuna.ical4j.model.Calendar ical = new net.fortuna.ical4j.model.Calendar();
+        final net.fortuna.ical4j.model.Calendar ical = new net.fortuna.ical4j.model.Calendar();
         ical.getProperties().add(Version.VERSION_2_0);
-        ical.getProperties().add(new ProdId("-//bitfire web engineering//DAVdroid " + Constants.APP_VERSION + "//EN"));
-        ByteArrayOutputStream os=null;
-        VToDo todo = new VToDo();
-        PropertyList props = todo.getProperties();
+        ical.getProperties().add(Constants.PRODUCT_ID);
+        final VToDo todo = new VToDo();
+        final PropertyList props = todo.getProperties();
         if (uid != null) {
             props.add(new Uid(uid));
         }
 
-        if(dtStart!=null)
+        if(dtStart!=null) {
             props.add(dtStart);
-        if (rrule != null)
+        }
+        if (rrule != null) {
             props.add(rrule);
-        if (rdate != null)
+        }
+        if (rdate != null) {
             props.add(rdate);
-        if (exrule != null)
+        }
+        if (exrule != null) {
             props.add(exrule);
-        if (exdate != null)
+        }
+        if (exdate != null) {
             props.add(exdate);
-        if (summary != null && !summary.isEmpty())
+        }
+        if ((summary != null) && !summary.isEmpty()) {
             props.add(new Summary(summary));
-        if (location != null && !location.isEmpty())
+        }
+        if ((location != null) && !location.isEmpty()) {
             props.add(new Location(location));
-        if (description != null && !description.isEmpty())
+        }
+        if ((description != null) && !description.isEmpty()) {
             props.add(new Description(description));
+        }
 
-        if (status != null)
+        if (status != null) {
             props.add(status);
-        if (!opaque)
+        }
+        if (!opaque) {
             props.add(Transp.TRANSPARENT);
-        if (organizer != null)
+        }
+        if (organizer != null) {
             props.add(organizer);
+        }
         props.addAll(attendees);
-        if (forPublic != null)
+        if (forPublic != null) {
             todo.getProperties().add(forPublic ? Clazz.PUBLIC : Clazz.PRIVATE);
+        }
 
         props.add(priority);
-        if(due!=null)
+        if(due!=null) {
             props.add(due);
-        if(completed!=null)
+        }
+        if(completed!=null) {
             props.add(completed);
-        if(dateCompleted!=null)
+        }
+        if(dateCompleted!=null) {
             props.add(dateCompleted);
+        }
         if(categories!=null){
             props.addAll(categories);
         }
-        if(status.getValue().equals(Status.VTODO_COMPLETED)){
+        if(Status.VTODO_COMPLETED.equals(status.getValue())){
             props.add(new Completed(new DateTime(new java.util.Date())));
         }
         ical.getComponents().add(todo);
+        Log.d(TAG,todo.toString());
+        ByteArrayOutputStream os = null;
         try {
-            CalendarOutputter output = new CalendarOutputter(false);
+            final CalendarOutputter output = new CalendarOutputter(false);
             os = new ByteArrayOutputStream();
             output.output(ical, os);
         } catch (ValidationException e) {
@@ -293,25 +315,27 @@ public class ToDo extends Resource {
         return os;
     }
 
-    public void setDue(long tsDue, String tzID) {
+    public void setDue(final long tsDue, final String tzID) {
         if (tzID == null) { // all-day
             due = new Due(new Date(tsDue));
         } else {
-            DateTime due = new DateTime(tsDue);
+            final DateTime due = new DateTime(tsDue);
             due.setTimeZone(tzRegistry.getTimeZone(tzID));
             this.due = new Due(due);
         }
     }
 
-    protected static boolean hasTime(DateProperty date) {
+    protected static boolean hasTime(final DateProperty date) {
         return date.getDate() instanceof DateTime;
     }
 
     public long getDueInMillis() {
-        if (!hasTime(due) && due == null) {
+        if (!hasTime(due) && (due == null)) {
             Calendar c = Calendar.getInstance(TimeZone
                     .getTimeZone(Time.TIMEZONE_UTC));
-            c.setTime(due.getDate());
+            if(due!=null) {
+                c.setTime(due.getDate());
+            }
             c.add(Calendar.DATE, 1);
             return c.getTimeInMillis();
         }
