@@ -151,7 +151,7 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 			setContent((CheckedTextView)convertView, R.drawable.calendar, (ServerInfo.ResourceInfo)getItem(position));
             break;
         case TYPE_TODO_LIST_ROW:
-            setContent((CheckedTextView)convertView, R.drawable.calendar, (ServerInfo.ResourceInfo)getItem(position));
+            setContent((CheckedTextView)convertView, R.drawable.ic_mirakel, (ServerInfo.ResourceInfo)getItem(position));
             break;
 		}
 		
