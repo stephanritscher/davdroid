@@ -4,6 +4,7 @@ import java.net.Socket;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLEngine;
@@ -11,7 +12,6 @@ import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509KeyManager;
 
 import android.util.Log;
-import edu.emory.mathcs.backport.java.util.Arrays;
 
 
 public class KeyManagerWrapper extends X509ExtendedKeyManager {

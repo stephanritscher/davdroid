@@ -126,4 +126,9 @@
     <string name="setup_account_name_info">"Use your email address as account name because Android will use the account name as ORGANIZER field for events you create. You can't have two accounts with the same name.</string>
     <string name="setup_read_only">read-only</string>
 
+    <string name="keyfile">Key from file</string>
+    <string name="keychain">Device Key Manager</string>
+    <string name="select_keyfile">Select key file</string>
+    <string name="keyfile_notfound">Key file not found.</string>
+    <string name="keyfile_loaderror">Error loading key file.</string>
 </resources>
