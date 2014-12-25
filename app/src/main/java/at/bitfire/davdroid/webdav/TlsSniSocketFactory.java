@@ -19,29 +19,39 @@ import org.apache.http.conn.socket.LayeredConnectionSocketFactory;
 import org.apache.http.conn.ssl.BrowserCompatHostnameVerifierHC4;
 import org.apache.http.protocol.HttpContext;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.KeyStore;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
+import javax.net.ssl.X509KeyManager;
+
+import android.content.Context;
 
 public class TlsSniSocketFactory implements LayeredConnectionSocketFactory {
 	private static final String TAG = "davdroid.SNISocketFactory";
 	
-	final static TlsSniSocketFactory INSTANCE = new TlsSniSocketFactory();
+	public final static TlsSniSocketFactory INSTANCE = new TlsSniSocketFactory();
 	
 	private final static SSLCertificateSocketFactory sslSocketFactory =
 			(SSLCertificateSocketFactory)SSLCertificateSocketFactory.getDefault(0);
 	private final static HostnameVerifier hostnameVerifier = new BrowserCompatHostnameVerifierHC4();
 
+	private X509KeyManager keyManager = null;
 	
 	/*
 	For SSL connections without HTTP(S) proxy:
@@ -79,6 +89,32 @@ public class TlsSniSocketFactory implements LayeredConnectionSocketFactory {
 		// create a plain SSL socket, but don't do hostname/certificate verification yet
 		SSLSocket ssl = (SSLSocket)sslSocketFactory.createSocket(remoteAddr.getAddress(), host.getPort());
 		setReasonableEncryption(ssl);
+		
+		// For some reason the KeyManager of the sslParameters might be the default KeyManager instead of the one we specified.
+		// Observed on a Galaxy Note 3 with Android 4.4
+		if (keyManager != null) {
+			try {
+				Object sp = null;
+				for (Field f : ssl.getClass().getDeclaredFields()) {
+					if (f.getName().equals("sslParameters")) {
+						f.setAccessible(true);
+						Log.d(TAG, ssl + "." + f.getName() + " = " + f.get(ssl));
+						sp = f.get(ssl);
+					}
+				}
+				if (sp != null) {
+					for (Field f : sp.getClass().getDeclaredFields()) {
+						if (f.getName().equals("keyManager")) {
+							f.setAccessible(true);
+							Log.d(TAG, sp + "." + f.getName() + " = " + f.get(sp) + "  ---  should be " + keyManager);
+							f.set(sp, keyManager);
+						}
+					}
+				}
+			} catch (Exception e) {
+				Log.e(TAG, "Could not apply workaround for setting keymanager", e);
+			}
+		}
 		
 		// connect, set SNI, shake hands, verify, print connection info
 		connectWithSNI(ssl, host.getHostName());
@@ -185,5 +221,36 @@ public class TlsSniSocketFactory implements LayeredConnectionSocketFactory {
 			ssl.setEnabledCipherSuites(enabledCiphers.toArray(new String[0]));
 		}
 	}
+	public void setKeyManager(byte[] keystore, String password) {
+		try {
+			KeyStore ks = KeyStore.getInstance("BKS");
+			ks.load(new ByteArrayInputStream(keystore), password.toCharArray());
+			KeyManagerFactory factory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+			factory.init(ks, password.toCharArray());
+			boolean found = false;
+			for (KeyManager km : factory.getKeyManagers()) {
+				if (km instanceof X509KeyManager) {
+					setKeyManager((X509KeyManager) km);
+					found = true;
+					Log.d(TAG, "Using user-specified keys with aliases " + Arrays.toString(Collections.list(ks.aliases()).toArray()) + ".");
+				}
+				break;
+			}
+			if (!found) {
+				Log.e(TAG, "No X509 compatible key manager was found.");
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "Could not set key managers", e);
+		}
+	}
+
+	public void setKeyManager(String alias, Context context) {
+		setKeyManager(new KeyChainKeyManager(context, alias));
+		Log.d(TAG, "Using key from keychain with alias " + alias + ".");
+	}
 	
+	public void setKeyManager(X509KeyManager keyManager) {
+		this.keyManager = keyManager;
+		sslSocketFactory.setKeyManagers(new KeyManager[]{keyManager});
+	}
 }

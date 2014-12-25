@@ -7,6 +7,13 @@
  ******************************************************************************/
 package at.bitfire.davdroid.syncadapter;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import lombok.Getter;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.content.AbstractThreadedSyncAdapter;
@@ -30,12 +37,14 @@ import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import at.bitfire.davdroid.Constants;
 import at.bitfire.davdroid.resource.LocalCollection;
 import at.bitfire.davdroid.resource.LocalStorageException;
 import at.bitfire.davdroid.resource.RemoteCollection;
 import at.bitfire.davdroid.webdav.DavException;
 import at.bitfire.davdroid.webdav.DavHttpClient;
 import at.bitfire.davdroid.webdav.HttpException;
+import at.bitfire.davdroid.webdav.TlsSniSocketFactory;
 import lombok.Getter;
 
 public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter implements Closeable {
@@ -107,6 +116,13 @@ public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter impleme
 		if (httpClient == null) {
 			Log.d(TAG, "Creating new DavHttpClient");
 			SharedPreferences settings = PreferenceManager.getDefaultSharedPreferences(getContext());
+			AccountSettings accountSettings = new AccountSettings(getContext(), account);
+			
+			if (accountSettings.getKeyStore() != null) {
+				TlsSniSocketFactory.INSTANCE.setKeyManager(accountSettings.getKeyStore(), accountSettings.getPassword());
+			} else if (accountSettings.getKeyAlias() != null) {
+				TlsSniSocketFactory.INSTANCE.setKeyManager(accountSettings.getKeyAlias(), getContext());
+			}
 			httpClient = DavHttpClient.create();
 		}
 		
