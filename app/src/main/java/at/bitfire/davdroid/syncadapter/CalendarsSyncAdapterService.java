@@ -49,10 +49,11 @@ public class CalendarsSyncAdapterService extends Service {
 
 	private static class SyncAdapter extends DavSyncAdapter {
 		private final static String TAG = "davdroid.CalendarsSyncAdapter";
-
+		private Context ctx;
 		
 		private SyncAdapter(Context context) {
 			super(context);
+			this.ctx = context;
 		}
 		
 		@Override
@@ -65,7 +66,7 @@ public class CalendarsSyncAdapterService extends Service {
 			try {
 				Map<LocalCollection<?>, RemoteCollection<?>> map = new HashMap<LocalCollection<?>, RemoteCollection<?>>();
 				
-				for (LocalCalendar calendar : LocalCalendar.findAll(account, provider)) {
+				for (LocalCalendar calendar : LocalCalendar.findAll(account, provider, ctx)) {
 					RemoteCollection<?> dav = new CalDavCalendar(httpClient, calendar.getUrl(), userName, password, preemptive);
 					map.put(calendar, dav);
 				}

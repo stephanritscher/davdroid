@@ -9,10 +9,15 @@ package at.bitfire.davdroid.syncadapter;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import lombok.Getter;
+
+import org.apache.http.HttpStatus;
+import org.apache.http.impl.client.CloseableHttpClient;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -27,17 +32,6 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.Log;
-
-import org.apache.http.HttpStatus;
-import org.apache.http.impl.client.CloseableHttpClient;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.Map;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import at.bitfire.davdroid.Constants;
 import at.bitfire.davdroid.resource.LocalCollection;
 import at.bitfire.davdroid.resource.LocalStorageException;
 import at.bitfire.davdroid.resource.RemoteCollection;
@@ -45,7 +39,6 @@ import at.bitfire.davdroid.webdav.DavException;
 import at.bitfire.davdroid.webdav.DavHttpClient;
 import at.bitfire.davdroid.webdav.HttpException;
 import at.bitfire.davdroid.webdav.TlsSniSocketFactory;
-import lombok.Getter;
 
 public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter implements Closeable {
 	private final static String TAG = "davdroid.DavSyncAdapter";
@@ -138,7 +131,7 @@ public abstract class DavSyncAdapter extends AbstractThreadedSyncAdapter impleme
 		try {
 			// get local <-> remote collection pairs
 			Map<LocalCollection<?>, RemoteCollection<?>> syncCollections = getSyncPairs(account, provider);
-			if (syncCollections == null)
+			if (syncCollections == null || syncCollections.isEmpty())
 				Log.i(TAG, "Nothing to synchronize");
 			else
 				try {

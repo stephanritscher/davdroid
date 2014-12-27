@@ -13,6 +13,7 @@ import android.content.ContentProviderOperation;
 import android.content.ContentProviderOperation.Builder;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.OperationApplicationException;
 import android.database.Cursor;
 import android.net.Uri;
@@ -21,6 +22,7 @@ import android.provider.CalendarContract;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import lombok.Cleanup;
 
@@ -33,7 +35,8 @@ import lombok.Cleanup;
  */
 public abstract class LocalCollection<T extends Resource> {
 	private static final String TAG = "davdroid.LocalCollection";
-	
+
+	protected Context ctx;
 	protected Account account;
 	protected ContentProviderClient providerClient;
 	protected ArrayList<ContentProviderOperation> pendingOperations = new ArrayList<ContentProviderOperation>();
@@ -43,7 +46,7 @@ public abstract class LocalCollection<T extends Resource> {
 	
 	/** base Uri of the collection's entries (for instance, Events.CONTENT_URI);
 	 *  apply syncAdapterURI() before returning a value */
-	abstract protected Uri entriesURI();
+	abstract protected Uri entriesURI() throws RecordNotFoundException;
 
 	/** column name of the type of the account the entry belongs to */
 	abstract protected String entryColumnAccountType();
@@ -68,7 +71,8 @@ public abstract class LocalCollection<T extends Resource> {
 	abstract protected String entryColumnUID();
 	
 
-	LocalCollection(Account account, ContentProviderClient providerClient) {
+	LocalCollection(Account account, ContentProviderClient providerClient, Context ctx) {
+  		this.ctx = ctx;
 		this.account = account;
 		this.providerClient = providerClient;
 	}
@@ -245,10 +249,10 @@ public abstract class LocalCollection<T extends Resource> {
 	abstract public T newResource(long localID, String resourceName, String eTag);
 	
 	/** Enqueues adding the resource (including all data) to the local collection. Requires commit(). */
-	public void add(Resource resource) {
+	public void add(Resource resource) throws LocalStorageException {
 		int idx = pendingOperations.size();
 		pendingOperations.add(
-				buildEntry(ContentProviderOperation.newInsert(entriesURI()), resource)
+				buildEntry(ContentProviderOperation.newInsert(entriesURI()), resource, true)
 				.withYieldAllowed(true)
 				.build());
 		
@@ -260,7 +264,7 @@ public abstract class LocalCollection<T extends Resource> {
 	public void updateByRemoteName(Resource remoteResource) throws LocalStorageException {
 		T localResource = findByRemoteName(remoteResource.getName(), false);
 		pendingOperations.add(
-				buildEntry(ContentProviderOperation.newUpdate(ContentUris.withAppendedId(entriesURI(), localResource.getLocalID())), remoteResource)
+				buildEntry(ContentProviderOperation.newUpdate(ContentUris.withAppendedId(entriesURI(), localResource.getLocalID())), remoteResource, false)
 				.withValue(entryColumnETag(), remoteResource.getETag())
 				.withYieldAllowed(true)
 				.build());
@@ -270,7 +274,7 @@ public abstract class LocalCollection<T extends Resource> {
 	}
 
 	/** Enqueues deleting a resource from the local collection. Requires commit(). */
-	public void delete(Resource resource) {
+	public void delete(Resource resource) throws RecordNotFoundException {
 		pendingOperations.add(ContentProviderOperation
 				.newDelete(ContentUris.withAppendedId(entriesURI(), resource.getLocalID()))
 				.withYieldAllowed(true)
@@ -281,7 +285,7 @@ public abstract class LocalCollection<T extends Resource> {
 	 * Enqueues deleting all resources except the give ones from the local collection. Requires commit().
 	 * @param remoteResources resources with these remote file names will be kept
 	 */
-	public abstract void deleteAllExceptRemoteNames(Resource[] remoteResources);
+	public abstract void deleteAllExceptRemoteNames(Resource[] remoteResources) throws LocalStorageException;
 	
 	/** Updates the locally-known ETag of a resource. */
 	public void updateETag(Resource res, String eTag) throws LocalStorageException {
@@ -297,7 +301,7 @@ public abstract class LocalCollection<T extends Resource> {
 	}
 	
 	/** Enqueues removing the dirty flag from a locally-stored resource. Requires commit(). */
-	public void clearDirty(Resource resource) {
+	public void clearDirty(Resource resource) throws RecordNotFoundException {
 		pendingOperations.add(ContentProviderOperation
 				.newUpdate(ContentUris.withAppendedId(entriesURI(), resource.getLocalID()))
 				.withValue(entryColumnDirty(), 0)
@@ -352,11 +356,11 @@ public abstract class LocalCollection<T extends Resource> {
 	 * 
 	 * @param builder Builder to be extended by all resource data that can be stored without extra data rows.
 	 */
-	protected abstract Builder buildEntry(Builder builder, Resource resource);
+	protected abstract Builder buildEntry(Builder builder, Resource resource,final boolean insert) throws LocalStorageException;
 	
 	/** Enqueues adding extra data rows of the resource to the local collection. */
-	protected abstract void addDataRows(Resource resource, long localID, int backrefIdx);
+	protected abstract void addDataRows(Resource resource, long localID, int backrefIdx) throws LocalStorageException;
 	
 	/** Enqueues removing all extra data rows of the resource from the local collection. */
-	protected abstract void removeDataRows(Resource resource);
+	protected abstract void removeDataRows(Resource resource) throws RecordNotFoundException, LocalStorageException;
 }

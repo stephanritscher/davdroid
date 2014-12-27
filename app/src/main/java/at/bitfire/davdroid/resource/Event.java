@@ -7,9 +7,19 @@
  ******************************************************************************/
 package at.bitfire.davdroid.resource;
 
-import android.text.format.Time;
-import android.util.Log;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.util.Calendar;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.SimpleTimeZone;
+import java.util.TimeZone;
 
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.Setter;
 import net.fortuna.ical4j.data.CalendarBuilder;
 import net.fortuna.ical4j.data.CalendarOutputter;
 import net.fortuna.ical4j.data.ParserException;
@@ -46,24 +56,13 @@ import net.fortuna.ical4j.model.property.Summary;
 import net.fortuna.ical4j.model.property.Transp;
 import net.fortuna.ical4j.model.property.Uid;
 import net.fortuna.ical4j.model.property.Version;
+import net.fortuna.ical4j.util.CompatibilityHints;
 import net.fortuna.ical4j.util.SimpleHostInfo;
 import net.fortuna.ical4j.util.UidGenerator;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
-import java.util.Calendar;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.SimpleTimeZone;
-import java.util.TimeZone;
-
+import android.text.format.Time;
+import android.util.Log;
 import at.bitfire.davdroid.Constants;
 import at.bitfire.davdroid.syncadapter.DavSyncAdapter;
-import lombok.Getter;
-import lombok.NonNull;
-import lombok.Setter;
 
 
 public class Event extends Resource {
@@ -100,6 +99,16 @@ public class Event extends Resource {
 	}
 	
 
+//	@Override
+//	public void setName(String name) {
+//		this.name=name!=null?name.replace(".ics",""):null;
+//	}
+
+//	@Override
+//	public String getName() {
+//		return name==null?name:name+".ics";
+//	}
+
 	public Event(String name, String ETag) {
 		super(name, ETag);
 	}
@@ -126,6 +135,7 @@ public class Event extends Resource {
 	public void parseEntity(@NonNull InputStream entity) throws IOException, InvalidResourceException {
 		net.fortuna.ical4j.model.Calendar ical;
 		try {
+			CompatibilityHints.setHintEnabled("ical4j.unfolding.relaxed", true);
 			CalendarBuilder builder = new CalendarBuilder();
 			ical = builder.build(entity);
 
@@ -180,7 +190,7 @@ public class Event extends Resource {
 			description = event.getDescription().getValue();
 		
 		status = event.getStatus();
-        opaque = event.getTransparency() != Transp.TRANSPARENT;
+		opaque = event.getTransparency() != Transp.TRANSPARENT;
 		
 		organizer = event.getOrganizer();
 		for (Object o : event.getProperties(Property.ATTENDEE))
@@ -202,7 +212,7 @@ public class Event extends Resource {
 	public ByteArrayOutputStream toEntity() throws IOException {
 		net.fortuna.ical4j.model.Calendar ical = new net.fortuna.ical4j.model.Calendar();
 		ical.getProperties().add(Version.VERSION_2_0);
-		ical.getProperties().add(new ProdId("-//bitfire web engineering//DAVdroid " + Constants.APP_VERSION + " (ical4j 1.0.x)//EN"));
+		ical.getProperties().add(Constants.PRODUCT_ID);
 		
 		VEvent event = new VEvent();
 		PropertyList props = event.getProperties();

@@ -10,7 +10,6 @@ package at.bitfire.davdroid.resource;
 import android.content.Context;
 import android.util.Log;
 
-import org.apache.http.HttpException;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.xbill.DNS.Lookup;
 import org.xbill.DNS.Record;
@@ -24,6 +23,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -31,6 +31,7 @@ import at.bitfire.davdroid.R;
 import at.bitfire.davdroid.webdav.DavException;
 import at.bitfire.davdroid.webdav.DavHttpClient;
 import at.bitfire.davdroid.webdav.DavIncapableException;
+import at.bitfire.davdroid.webdav.HttpException;
 import at.bitfire.davdroid.webdav.HttpPropfind.Mode;
 import at.bitfire.davdroid.webdav.NotAuthorizedException;
 import at.bitfire.davdroid.webdav.WebDavResource;
@@ -112,32 +113,51 @@ public class DavResourceFinder implements Closeable {
 					homeSetCalendars.propfind(Mode.CALDAV_COLLECTIONS);
 					
 					List<ServerInfo.ResourceInfo> calendars = new LinkedList<ServerInfo.ResourceInfo>();
+					List<ServerInfo.ResourceInfo> todoLists = new LinkedList<ServerInfo.ResourceInfo>();
 					if (homeSetCalendars.getMembers() != null)
 						for (WebDavResource resource : homeSetCalendars.getMembers())
 							if (resource.isCalendar()) {
-								Log.i(TAG, "Found calendar: " + resource.getLocation().getPath());
+								Log.i(TAG, "Found calendar: " + resource.getLocation().getRawPath());
+								boolean supportsEvents = false;
+								boolean supportsTodos = false;
 								if (resource.getSupportedComponents() != null) {
 									// CALDAV:supported-calendar-component-set available
-									boolean supportsEvents = false;
-									for (String supportedComponent : resource.getSupportedComponents())
+									for (String supportedComponent : resource.getSupportedComponents()) {
 										if (supportedComponent.equalsIgnoreCase("VEVENT"))
 											supportsEvents = true;
-									if (!supportsEvents) {	// ignore collections without VEVENT support
-										Log.i(TAG, "Ignoring this calendar because of missing VEVENT support");
+										if (supportedComponent.equalsIgnoreCase("VTODO"))
+											supportsTodos=true;
+									}
+									if (!supportsEvents && !supportsTodos) {	// ignore collections without VEVENT or VTODO support
+										Log.i(TAG, "Ignoring this calendar because of missing VEVENT or VTODO support");
 										continue;
 									}
 								}
-								ServerInfo.ResourceInfo info = new ServerInfo.ResourceInfo(
-									ServerInfo.ResourceInfo.Type.CALENDAR,
-									resource.isReadOnly(),
-									resource.getLocation().toString(),
-									resource.getDisplayName(),
-									resource.getDescription(), resource.getColor()
-								);
-								info.setTimezone(resource.getTimezone());
-								calendars.add(info);
+								if (supportsEvents) {
+									ServerInfo.ResourceInfo info = new ServerInfo.ResourceInfo(
+										ServerInfo.ResourceInfo.Type.CALENDAR,
+										resource.isReadOnly(),
+										resource.getLocation().toString(),
+										resource.getDisplayName(),
+										resource.getDescription(), resource.getColor()
+									);
+									info.setTimezone(resource.getTimezone());
+									calendars.add(info);
+								}
+								if (supportsTodos && !resource.isReadOnly()) {
+									ServerInfo.ResourceInfo info = new ServerInfo.ResourceInfo(
+										ServerInfo.ResourceInfo.Type.TODO_LIST,
+										resource.isReadOnly(),
+										resource.getLocation().toString(),
+										resource.getDisplayName(),
+										resource.getDescription(), resource.getColor()
+									);
+									info.setTimezone(resource.getTimezone());
+									todoLists.add(info);
+								}
 							}
 					serverInfo.setCalendars(calendars);
+					serverInfo.setTodoLists(todoLists);
 				} else
 					Log.w(TAG, "Found calendar home set, but it doesn't advertise CalDAV support");
 			}

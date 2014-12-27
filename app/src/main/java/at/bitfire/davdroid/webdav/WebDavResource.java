@@ -569,7 +569,6 @@ public class WebDavResource {
 				member.properties = properties;
 				member.supportedComponents = supportedComponents;
 				member.content = data;
-				
 				members.add(member);
 			}
 		}

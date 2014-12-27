@@ -16,6 +16,7 @@ import android.content.ContentProviderOperation.Builder;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.net.Uri;
@@ -155,19 +156,19 @@ public class LocalCalendar extends LocalCollection<Event> {
 		}
 	}
 	
-	public static LocalCalendar[] findAll(Account account, ContentProviderClient providerClient) throws RemoteException {
+	public static LocalCalendar[] findAll(Account account, ContentProviderClient providerClient, Context ctx) throws RemoteException {
 		@Cleanup Cursor cursor = providerClient.query(calendarsURI(account),
 				new String[] { Calendars._ID, Calendars.NAME },
 				Calendars.DELETED + "=0 AND " + Calendars.SYNC_EVENTS + "=1", null, null);
 		
 		LinkedList<LocalCalendar> calendars = new LinkedList<LocalCalendar>();
 		while (cursor != null && cursor.moveToNext())
-			calendars.add(new LocalCalendar(account, providerClient, cursor.getInt(0), cursor.getString(1)));
+			calendars.add(new LocalCalendar(account, providerClient, cursor.getInt(0), cursor.getString(1), ctx));
 		return calendars.toArray(new LocalCalendar[0]);
 	}
 
-	public LocalCalendar(Account account, ContentProviderClient providerClient, long id, String url) throws RemoteException {
-		super(account, providerClient);
+	public LocalCalendar(Account account, ContentProviderClient providerClient, long id, String url, Context ctx) throws RemoteException {
+		super(account, providerClient, ctx);
 		this.id = id;
 		this.url = url;
 	}
@@ -441,7 +442,7 @@ public class LocalCalendar extends LocalCollection<Event> {
 	/* content builder methods */
 
 	@Override
-	protected Builder buildEntry(Builder builder, Resource resource) {
+	protected Builder buildEntry(Builder builder, Resource resource, boolean insert) {
 		Event event = (Event)resource;
 
 		builder = builder

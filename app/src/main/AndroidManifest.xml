@@ -15,7 +15,16 @@
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
-	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <!-- Perimission do interact with mirakel -->
+    <uses-permission android:name="de.azapps.mirakel.provider.READ_WRITE_DATA" />
+    <uses-permission android:name="de.azapps.mirakel.provider.READ_DATA" />
+    <uses-permission android:name="de.azapps.mirakel.provider.WRITE_DATA" />
+ 
+    <!-- Perimission do interact with tasks -->
+    <uses-permission android:name="org.dmfs.permission.READ_TASKS" />
+    <uses-permission android:name="org.dmfs.permission.WRITE_TASKS" />
  
     <application
         android:allowBackup="true"
@@ -59,6 +68,18 @@
                 android:name="android.content.SyncAdapter"
                 android:resource="@xml/sync_calendars" />
         </service>
+        <service
+            android:name=".syncadapter.ListsSyncAdapterService"
+            android:exported="true" >
+
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/sync_list" />
+        </service>
 
         <activity
             android:name=".MainActivity"
@@ -71,6 +92,9 @@
         <activity
             android:name=".syncadapter.AddAccountActivity"
             android:excludeFromRecents="true" >
+        </activity>
+        <activity
+            android:name=".syncadapter.GeneralSettingsActivity" >
         </activity>
     </application>
 

@@ -88,9 +88,9 @@ public abstract class RemoteCollection<T extends Resource> {
 			Log.i(TAG, "Multi-getting " + resources.length + " remote resource(s)");
 			
 			LinkedList<String> names = new LinkedList<String>();
-			for (Resource resource : resources)
+			for (Resource resource : resources) {
 				names.add(resource.getName());
-			
+			}
 			LinkedList<T> foundResources = new LinkedList<T>();
 			collection.multiGet(multiGetType(), names.toArray(new String[0]));
 			if (collection.getMembers() == null)
@@ -128,6 +128,8 @@ public abstract class RemoteCollection<T extends Resource> {
 			member.get(Contact.MIME_TYPE);
 		else if (resource instanceof Event)
 			member.get(Event.MIME_TYPE);
+		else if (resource instanceof ToDo)
+			member.get(ToDo.MIME_TYPE);
 		else {
 			Log.wtf(TAG, "Should fetch something, but neither contact nor calendar");
 			throw new InvalidResourceException("Didn't now which MIME type to accept");

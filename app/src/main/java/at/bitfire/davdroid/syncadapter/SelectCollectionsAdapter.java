@@ -10,6 +10,7 @@ package at.bitfire.davdroid.syncadapter;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.text.Html;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,11 +27,14 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 	final static int TYPE_ADDRESS_BOOKS_HEADING = 0,
 		TYPE_ADDRESS_BOOKS_ROW = 1,
 		TYPE_CALENDARS_HEADING = 2,
-		TYPE_CALENDARS_ROW = 3;
-	
+		TYPE_CALENDARS_ROW = 3,
+		TYPE_TODO_LIST_HEADING = 4,
+		TYPE_TODO_LIST_ROW = 5;
+	private static final String TAG = "SelectCollectionsAdapter";
+
 	protected Context context;
 	protected ServerInfo serverInfo;
-	@Getter protected int nAddressBooks, nCalendars;
+	@Getter protected int nAddressBooks, nCalendars, nToDoLists;
 	
 	
 	public SelectCollectionsAdapter(Context context, ServerInfo serverInfo) {
@@ -39,6 +43,7 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 		this.serverInfo = serverInfo;
 		nAddressBooks = (serverInfo.getAddressBooks() == null) ? 0 : serverInfo.getAddressBooks().size();
 		nCalendars = (serverInfo.getCalendars() == null) ? 0 : serverInfo.getCalendars().size();
+		nToDoLists = (serverInfo.getTodoLists() == null) ? 0 : serverInfo.getTodoLists().size();
 	}
 	
 	
@@ -46,15 +51,25 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 	
 	@Override
 	public int getCount() {
-		return nAddressBooks + nCalendars + 2;
+		return nAddressBooks + nCalendars + nToDoLists + 3;
 	}
 
 	@Override
 	public Object getItem(int position) {
-		if (position > 0 && position <= nAddressBooks)
-			return serverInfo.getAddressBooks().get(position - 1);
-		else if (position > nAddressBooks + 1)
-			return serverInfo.getCalendars().get(position - nAddressBooks - 2);
+
+		switch (getItemViewType(position)){
+			case TYPE_ADDRESS_BOOKS_ROW:
+				return serverInfo.getAddressBooks().get(position - 1);
+			case TYPE_CALENDARS_ROW:
+				return serverInfo.getCalendars().get(position - nAddressBooks - 2);
+			case TYPE_TODO_LIST_ROW:
+				return serverInfo.getTodoLists().get(position - nAddressBooks - nCalendars - 3);
+			case TYPE_TODO_LIST_HEADING:
+				case TYPE_ADDRESS_BOOKS_HEADING:
+			case TYPE_CALENDARS_HEADING:
+			default:
+				Log.wtf(TAG,"unsupportet type");
+		}
 		return null;
 	}
 	
@@ -73,7 +88,7 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 
 	@Override
 	public int getViewTypeCount() {
-		return 4;
+		return 6;
 	}
 
 	@Override
@@ -86,6 +101,10 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 			return TYPE_CALENDARS_HEADING;
 		else if (position <= nAddressBooks + nCalendars + 1)
 			return TYPE_CALENDARS_ROW;
+		else if (position == nAddressBooks + nCalendars + 2)
+			return TYPE_TODO_LIST_HEADING;
+		else if (position <= nAddressBooks + nCalendars + nToDoLists + 2)
+			return TYPE_TODO_LIST_ROW;
 		else
 			return IGNORE_ITEM_VIEW_TYPE;
 	}
@@ -110,8 +129,14 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 				v = inflater.inflate(R.layout.calendars_heading, parent, false);
 				break;
 			case TYPE_CALENDARS_ROW:
+    			case TYPE_TODO_LIST_ROW:
 				v = inflater.inflate(android.R.layout.simple_list_item_multiple_choice, null);
 				v.setPadding(0, 8, 0, 8);
+				break;
+			case TYPE_TODO_LIST_HEADING:
+				//TODO change this!!!
+				v = inflater.inflate(R.layout.todo_list_heading, parent, false);
+				break;
 			}
 		}
 		
@@ -122,6 +147,10 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 			break;
 		case TYPE_CALENDARS_ROW:
 			setContent((CheckedTextView)v, R.drawable.calendar, (ServerInfo.ResourceInfo)getItem(position));
+			break;
+		case TYPE_TODO_LIST_ROW:
+			setContent((CheckedTextView)v, R.drawable.ic_mirakel, (ServerInfo.ResourceInfo)getItem(position));
+			break;
 		}
 		
 		return v;
@@ -157,6 +186,6 @@ public class SelectCollectionsAdapter extends BaseAdapter implements ListAdapter
 	@Override
 	public boolean isEnabled(int position) {
 		int type = getItemViewType(position);
-		return (type == TYPE_ADDRESS_BOOKS_ROW || type == TYPE_CALENDARS_ROW);
+		return (type == TYPE_ADDRESS_BOOKS_ROW || type == TYPE_CALENDARS_ROW || type == TYPE_TODO_LIST_ROW);
 	}
 }

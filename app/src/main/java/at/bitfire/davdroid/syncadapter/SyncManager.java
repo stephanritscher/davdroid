@@ -98,6 +98,7 @@ public class SyncManager {
 		// update collection CTag
 		Log.i(TAG, "Sync complete, fetching new CTag");
 		local.setCTag(remote.getCTag());
+		local.commit();
 	}
 	
 	

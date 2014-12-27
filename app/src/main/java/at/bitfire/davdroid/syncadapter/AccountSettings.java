@@ -24,13 +24,8 @@ import android.provider.CalendarContract;
 import android.provider.CalendarContract.Calendars;
 import android.util.Base64;
 import android.util.Log;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-
 import at.bitfire.davdroid.resource.ServerInfo;
 import ezvcard.VCardVersion;
-import lombok.Cleanup;
 
 public class AccountSettings {
 	private final static String TAG = "davdroid.AccountSettings";

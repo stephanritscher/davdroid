@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="at.bitfire.davdroid"
-    android:versionCode="47"
-    android:versionName="0.6.8" android:installLocation="internalOnly">
+    android:versionCode="48"
+    android:versionName="0.6.9" android:installLocation="internalOnly">
 
     <uses-sdk
         android:minSdkVersion="14"
@@ -17,6 +17,15 @@
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
+    <!-- Perimission do interact with mirakel -->
+    <uses-permission android:name="de.azapps.mirakel.provider.READ_WRITE_DATA" />
+    <uses-permission android:name="de.azapps.mirakel.provider.READ_DATA" />
+    <uses-permission android:name="de.azapps.mirakel.provider.WRITE_DATA" />
+ 
+    <!-- Perimission do interact with tasks -->
+    <uses-permission android:name="org.dmfs.permission.READ_TASKS" />
+    <uses-permission android:name="org.dmfs.permission.WRITE_TASKS" />
+ 
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -59,6 +68,18 @@
                 android:name="android.content.SyncAdapter"
                 android:resource="@xml/sync_calendars" />
         </service>
+        <service
+            android:name=".syncadapter.ListsSyncAdapterService"
+            android:exported="true" >
+
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/sync_list" />
+        </service>
 
         <activity
             android:name=".MainActivity"
@@ -75,6 +96,6 @@
         <activity
             android:name=".syncadapter.GeneralSettingsActivity" >
         </activity>
-        </application>
+    </application>
 
 </manifest>
