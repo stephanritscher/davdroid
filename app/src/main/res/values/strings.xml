@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="account_type" translatable="false">bitfire.at.davdroid.tasks</string>
+    <string name="account_type" translatable="false">bitfire.at.davdroid.mirakel</string>
     <string name="install_taskprovider">Please install a taskprovider like Mirakel or DMFS to sync TODO\'s</string>
 
     <!-- common strings -->
